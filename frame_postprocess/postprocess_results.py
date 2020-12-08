@@ -1,6 +1,17 @@
 from .base import *
 
 def plot_building_at_t(t, edp, columns, beams, plot_scale, ax):
+    # Take LineCollections objects of the columns and beams and plots them including the displacements at
+    # a given time t
+    #
+    # INPUTS
+    #    t           = time for deformed shape plot
+    #    edp         = 2D np.array [floor_i, time] of the displacement of each floor
+    #    columns     = LineCollection of columns
+    #    beams       = LineCollections of beams
+    #    plot_scale  = scale for amplifying displacements
+    #    ax          = axes to plot in
+
     ax.cla()
 
     [_, n_pts] = edp.shape
@@ -42,16 +53,18 @@ def plot_building_at_t(t, edp, columns, beams, plot_scale, ax):
 
     building_height = np.max(columns[:, :, 1])
     building_width = np.max(columns[:, :, 0])
-    y_gap = 150
+    y_gap = 500
     x_gap = 100
     _ = ax.set_xlim(-x_gap, building_width + x_gap)
-    _ = ax.set_ylim(-y_gap, building_height + y_gap)
+    _ = ax.set_ylim(-y_gap, building_height + y_gap/5)
     _ = ax.axis('off')
     # _ = ax.text(building_width / 2, -y_gap, 'Displacement scale: ' + str(plot_scale) + 'x', ha='center', va='top',
     #             fontsize=18)
 
 
 def get_coordinates(beam_list, column_list, bay_widths, story_heights):
+
+
     ####### Read building information from MATLAB file #######
     #     model_data = h5py.File('generate model/' + bldg_name + '.mat')
 
@@ -100,7 +113,9 @@ def get_coordinates(beam_list, column_list, bay_widths, story_heights):
     return n_stories, n_bays, columns, beams, joints_x, joints_y
 
 
-def plot_flaw_size(joints_x, joints_y, a0, side):
+def plot_flaw_size(ax, joints_x, joints_y, a0, side):
+
+
     # Retrieve basic info for loops
     n_stories, n_bays = joints_x.shape
     n_stories = n_stories - 1
@@ -137,73 +152,6 @@ def plot_flaw_size(joints_x, joints_y, a0, side):
     _ = ax.plot(joints_x_low, joints_y_low, 'o', color=color_specs[2], alpha=0.8)
     _ = ax.plot(joints_x_med, joints_y_med, 'o', color=color_specs[0], alpha=0.8)
     _ = ax.plot(joints_x_large, joints_y_large, 'o', color=color_specs[1], alpha=0.8)
-
-
-def plot_fractures(joints_x, joints_y, frac_results):
-    flange_locations = frac_results.keys()
-
-    # Retrieve basic info for loops
-    n_stories, n_bays = joints_x.shape
-    n_stories = n_stories - 1
-    n_bays = n_bays - 1
-
-    joints_x_bot = np.empty((0, 1))
-    joints_y_bot = np.empty((0, 1))
-    joints_x_top = np.empty((0, 1))
-    joints_y_top = np.empty((0, 1))
-    joints_x_both = np.empty((0, 1))
-    joints_y_both = np.empty((0, 1))
-
-    # get matrix of fracture results
-    fracture_left = frac_results['frac_LB'] + frac_results['frac_LT'] * 2
-    fracture_right = frac_results['frac_RB'] + frac_results['frac_RT'] * 2
-
-    # Review left side of all beams
-    for story_i in range(n_stories):
-
-        for bay_i in range(n_bays):
-
-            col_i = bay_i
-            d_x = 30
-
-            if fracture_left[story_i, bay_i] == 1:
-                # Fracture bottom flage only
-                joints_x_bot = np.append(joints_x_bot, joints_x[story_i + 1, col_i] + d_x)
-                joints_y_bot = np.append(joints_y_bot, joints_y[story_i + 1, col_i])
-            elif fracture_left[story_i, bay_i] == 2:
-                # Fracture top flage only
-                joints_x_top = np.append(joints_x_top, joints_x[story_i + 1, col_i] + d_x)
-                joints_y_top = np.append(joints_y_top, joints_y[story_i + 1, col_i])
-            elif fracture_left[story_i, bay_i] == 3:
-                # Fracture both flanges
-                joints_x_both = np.append(joints_x_both, joints_x[story_i + 1, col_i] + d_x)
-                joints_y_both = np.append(joints_y_both, joints_y[story_i + 1, col_i])
-
-    # Review right side of all beams
-    for story_i in range(n_stories):
-
-        for bay_i in range(n_bays):
-
-            col_i = bay_i + 1
-            d_x = -30
-
-            if fracture_right[story_i, bay_i] == 1:
-                # Fracture bottom flage only
-                joints_x_bot = np.append(joints_x_bot, joints_x[story_i + 1, col_i] + d_x)
-                joints_y_bot = np.append(joints_y_bot, joints_y[story_i + 1, col_i])
-            elif fracture_right[story_i, bay_i] == 2:
-                # Fracture top flage only
-                joints_x_top = np.append(joints_x_top, joints_x[story_i + 1, col_i] + d_x)
-                joints_y_top = np.append(joints_y_top, joints_y[story_i + 1, col_i])
-            elif fracture_right[story_i, bay_i] == 3:
-                # Fracture both flanges
-                joints_x_both = np.append(joints_x_both, joints_x[story_i + 1, col_i] + d_x)
-                joints_y_both = np.append(joints_y_both, joints_y[story_i + 1, col_i])
-
-    _ = ax.plot(joints_x_bot, joints_y_bot, 'o', color='m', alpha=0.9)
-    _ = ax.plot(joints_x_both, joints_y_both, 'o', color='r', alpha=0.9)
-    _ = ax.plot(joints_x_top, joints_y_top, 'o', color='tab:blue', alpha=0.9)
-
 
 def get_beam_response(results_folder, beam_list, filenames):
     # Read response for beams, currently takes either the maximum or the last of the time history
@@ -381,7 +329,84 @@ def get_story_response(results_folder, beam_list, filenames):
     return story_response
 
 
-def plot_beam_response(joints_x, joints_y, respose_left, respose_right, d_x=30, max_value=1, max_marker_size=300):
+def plot_fractures(ax, joints_x, joints_y, frac_results, marker_size=50, add_legend=False):
+
+
+    # Retrieve basic info for loops
+    n_stories, n_bays = joints_x.shape
+    n_stories = n_stories - 1
+    n_bays = n_bays - 1
+
+    joints_x_bot = np.empty((0, 1))
+    joints_y_bot = np.empty((0, 1))
+    joints_x_top = np.empty((0, 1))
+    joints_y_top = np.empty((0, 1))
+    joints_x_both = np.empty((0, 1))
+    joints_y_both = np.empty((0, 1))
+
+    # get matrix of fracture results
+    fracture_left = frac_results['frac_LB'] + frac_results['frac_LT'] * 2
+    fracture_right = frac_results['frac_RB'] + frac_results['frac_RT'] * 2
+
+    # Review left side of all beams
+    for story_i in range(n_stories):
+
+        for bay_i in range(n_bays):
+
+            col_i = bay_i
+            d_x = 30
+
+            if fracture_left[story_i, bay_i] == 1:
+                # Fracture bottom flage only
+                joints_x_bot = np.append(joints_x_bot, joints_x[story_i + 1, col_i] + d_x)
+                joints_y_bot = np.append(joints_y_bot, joints_y[story_i + 1, col_i])
+            elif fracture_left[story_i, bay_i] == 2:
+                # Fracture top flage only
+                joints_x_top = np.append(joints_x_top, joints_x[story_i + 1, col_i] + d_x)
+                joints_y_top = np.append(joints_y_top, joints_y[story_i + 1, col_i])
+            elif fracture_left[story_i, bay_i] == 3:
+                # Fracture both flanges
+                joints_x_both = np.append(joints_x_both, joints_x[story_i + 1, col_i] + d_x)
+                joints_y_both = np.append(joints_y_both, joints_y[story_i + 1, col_i])
+
+    # Review right side of all beams
+    for story_i in range(n_stories):
+
+        for bay_i in range(n_bays):
+
+            col_i = bay_i + 1
+            d_x = -30
+
+            if fracture_right[story_i, bay_i] == 1:
+                # Fracture bottom flage only
+                joints_x_bot = np.append(joints_x_bot, joints_x[story_i + 1, col_i] + d_x)
+                joints_y_bot = np.append(joints_y_bot, joints_y[story_i + 1, col_i])
+            elif fracture_right[story_i, bay_i] == 2:
+                # Fracture top flage only
+                joints_x_top = np.append(joints_x_top, joints_x[story_i + 1, col_i] + d_x)
+                joints_y_top = np.append(joints_y_top, joints_y[story_i + 1, col_i])
+            elif fracture_right[story_i, bay_i] == 3:
+                # Fracture both flanges
+                joints_x_both = np.append(joints_x_both, joints_x[story_i + 1, col_i] + d_x)
+                joints_y_both = np.append(joints_y_both, joints_y[story_i + 1, col_i])
+
+    _ = ax.scatter(joints_x_bot, joints_y_bot, s=marker_size, color='m')
+    _ = ax.scatter(joints_x_both, joints_y_both, s=marker_size, color='r')
+    _ = ax.scatter(joints_x_top, joints_y_top, s=marker_size, color='tab:blue')
+
+    # Plot annotations below the frame to show scale for all non-zero bins
+    if add_legend:
+        y_gap = -100
+        y_between = -150
+        _ = ax.scatter(joints_x[0,0] * 1/5, y_gap, s=marker_size, color='m')
+        _ = ax.text(joints_x[0,0] * 1/5 + marker_size/4, y_gap - 50, 'Bottom fracture', size=18)
+
+        _ = ax.scatter(joints_x[0,0] * 1/5, y_gap+y_between, s=marker_size, color='r')
+        _ = ax.text(joints_x[0,0] * 1/5 + marker_size/4, y_gap - 50 + y_between, 'Top & Bottom fracture', size=18)
+
+
+def plot_beam_response(ax, joints_x, joints_y, respose_left, respose_right, d_x=30, max_value=1,
+                       max_marker_size=300):
     # Plots response of any continuous quantity of beam end response as a circle of varying size in the correct location
     # in the building
     #
@@ -425,15 +450,101 @@ def plot_beam_response(joints_x, joints_y, respose_left, respose_right, d_x=30, 
             _ = ax.scatter(joints_x[story_i + 1, col_i] + d_x, joints_y[story_i + 1, col_i], s=marker_size,
                            facecolors='none', color='m', alpha=0.9)
 
-            # Plot annotation below the frame to show scale
+    # Plot annotation below the frame to show scale
     y_gap = -50
     _ = ax.scatter(np.mean(joints_x[0]), y_gap, s=max_marker_size, facecolors='none', color='m', alpha=0.9)
-    _ = ax.text(np.mean(joints_x[0]) + max_marker_size / 4, y_gap * 4 / 3, 'Size = ' + str(max_value))
+    _ = ax.text(np.mean(joints_x[0]) + max_marker_size / 4, y_gap - 50, 'Size = ' + str(max_value), size=18)
 
 
-def plot_story_response(story_response_to_plot, story_heights, bay_widths,
-                        x_ticks=np.array([0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]),
+def plot_beam_response_bins(ax, joints_x, joints_y, respose_left, respose_right, d_x=30, max_value=1,
+                            max_marker_size=300, bins=np.array([0, 0.5, 0.75, 0.9])):
+    # Plots response of any continuous quantity of beam end response as a circle of varying size in the correct location
+    # in the building. The circle sizes have discrete sizes based on the values in the bin vector
+    # The first category has no marker, and the others increase linearly until the maximum size
+    #
+    # INPUTS
+    #     joints_x        = np.array of x coordinates of all beam-to-column joints
+    #     joints_y        = np.array of y coordinates of all beam-to-column joints
+    #     respose_left    = 2D np.array of the response to be plotted on the left side of beams
+    #     respose_left    = 2D np.array of the response to be plotted on the right side of beams
+    #     d_x             = offset in x for placing the circle
+    #     max_value       = maximum value of the quantity to plot
+    #     max_marker_size = maximum size of the marker
+    #     bins            = np.array of the limits of the beam response to define bins
+    #
+
+    # Retrieve basic info for loops
+    n_stories, n_bays = joints_x.shape
+    n_stories = n_stories - 1
+    n_bays = n_bays - 1
+
+    # Set all values greater than the maximum equal to the maximum
+    respose_left[respose_left >= max_value] = max_value
+    respose_right[respose_right >= max_value] = max_value
+
+    # Marker sizes
+    n_bins = len(bins)
+    marker_size_bin = np.zeros(n_bins)
+    for bin_i in range(n_bins - 1):
+        marker_size_bin[bin_i + 1] = max_marker_size / (2 * (n_bins - 1)) * (1 + bin_i * 2)
+    marker_size_bin[-1] = max_marker_size
+
+    # Review left side of all beams
+    for story_i in range(n_stories):
+
+        for bay_i in range(n_bays):
+            col_i = bay_i
+
+            # Get the index of the correct bin for marker size
+            curr_bin = 1
+            if respose_left[story_i, bay_i] > np.max(bins):
+                curr_bin = len(bins)
+            else:
+                while respose_left[story_i, bay_i] > bins[curr_bin]:
+                    curr_bin += 1
+            # Plot circle
+            _ = ax.scatter(joints_x[story_i + 1, col_i] + d_x, joints_y[story_i + 1, col_i],
+                           s=marker_size_bin[curr_bin - 1], facecolors='none', color='m', alpha=0.9)
+
+    # Review right side of all beams
+    d_x = -d_x
+    for story_i in range(n_stories):
+
+        for bay_i in range(n_bays):
+            col_i = bay_i + 1
+
+            # Get the index of the correct bin for marker size
+            curr_bin = 1
+            if respose_right[story_i, bay_i] > np.max(bins):
+                curr_bin = len(bins)
+            else:
+                while respose_right[story_i, bay_i] > bins[curr_bin]:
+                    curr_bin += 1
+            # Plot circle
+            _ = ax.scatter(joints_x[story_i + 1, col_i] + d_x, joints_y[story_i + 1, col_i],
+                           s=marker_size_bin[curr_bin - 1], facecolors='none', color='m', alpha=0.9)
+
+    # Plot annotations below the frame to show scale for all non-zero bins
+    y_gap = -50
+    y_between = -150
+    for bin_i in range(n_bins - 2):
+        _ = ax.scatter(np.mean(joints_x[0]) * 1 / 5, y_gap + y_between * bin_i, s=marker_size_bin[bin_i + 1],
+                       facecolors='none',
+                       color='m', alpha=0.9)
+        _ = ax.text(np.mean(joints_x[0]) * 1 / 5 + max_marker_size / 4, y_gap * 2 + y_between * bin_i,
+                    'FI' + ' = ' + str(bins[bin_i + 1]) + ' - ' + str(bins[bin_i + 2]), size=18)
+
+    _ = ax.scatter(np.mean(joints_x[0]) * 1 / 5, y_gap + y_between * (bin_i + 1), s=max_marker_size, facecolors='none',
+                   color='m', alpha=0.9)
+    _ = ax.text(np.mean(joints_x[0]) * 1 / 5 + max_marker_size / 4, y_gap * 2 + y_between * (bin_i + 1),
+                'FI' + ' $\geq$ ' + str(np.max(bins)), size=18)
+
+
+def plot_story_response(ax, story_response_to_plot, story_heights, bay_widths,
+                        x_ticks=np.array([0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]), color_name='r',
                         xlabel_text='Peak story drift ratio [%]'):
+
+
     data = np.vstack((story_response_to_plot, story_response_to_plot[-1]))
     heights = np.array([0])
     heights = np.hstack((heights, story_heights))
@@ -441,22 +552,67 @@ def plot_story_response(story_response_to_plot, story_heights, bay_widths,
     # Scale to ensure parallel to building plot
     building_height = sum(story_heights)
     building_width = sum(bay_widths)
-    y_gap = 150  # same as in building plot function
+#     y_gap = 500  # same as in building plot function
     x_gap = 100  # same as in building plot function
-    scale_for_plot = (building_width) / np.max(data)
+    scale_for_plot = building_width / np.max(x_ticks)
 
-    _ = ax.step(data * scale_for_plot, np.cumsum(heights), linewidth=2, color='r')
-    _ = ax.axis('scaled')
+    _ = ax.step(data * scale_for_plot * 100, np.cumsum(heights), linewidth=2, color=color_name)
+#     _ = ax.axis('scaled')
 
     # Formatting to ensure parallel to building plot
-    _ = ax.set_xticks(x_ticks * scale_for_plot / 100)
+    _ = ax.set_xticks(x_ticks * scale_for_plot)
     _ = ax.set_xticklabels(x_ticks)
     _ = ax.set_xlim(-x_gap, building_width + x_gap)
-    _ = ax.set_ylim(-y_gap, building_height + y_gap)
+#     _ = ax.set_ylim(-y_gap/5, building_height + y_gap/5)
     _ = ax.set_yticks(np.cumsum(heights))
     _ = ax.set_yticklabels(np.arange(len(heights)))
 
     _ = ax.set_ylabel('Floor number')
     _ = ax.set_xlabel(xlabel_text)
     _ = ax.grid(which='both', alpha=0.3)
+
+
+def plot_column_response(ax, joints_x, joints_y, respose_bot, respose_top, d_y=30, max_value=1, max_marker_size=300):
+    # Plots response of any continuous quantity of beam end response as a circle of varying size in the correct location
+    # in the building
+    #
+    # INPUTS
+    #     joints_x        = np.array of x coordinates of all beam-to-column joints
+    #     joints_y        = np.array of y coordinates of all beam-to-column joints
+    #     respose_bot    = 2D np.array of the response to be plotted on the bottom side of beams
+    #     respose_top    = 2D np.array of the response to be plotted on the top side of beams
+    #     d_y             = offset in y for placing the circle
+    #     max_value       = maximum value of the quantity to plot
+    #     max_marker_size = maximum size of the marker
+    #
+
+    # Retrieve basic info for loops
+    n_stories, n_piers = joints_x.shape
+    n_stories = n_stories - 1
+
+    # Set all values greater than the maximum equal to the maximum
+    respose_bot[respose_bot >= max_value] = max_value
+    respose_top[respose_top >= max_value] = max_value
+
+    # Review bottom side of all beams
+    for story_i in range(n_stories):
+
+        for pier_i in range(n_piers):
+            marker_size = respose_bot[story_i, pier_i] / max_value * max_marker_size
+            _ = ax.scatter(joints_x[story_i, pier_i], joints_y[story_i, pier_i] + d_y, s=marker_size,
+                           facecolors='none', color='m', alpha=0.9)
+
+    # Review top side of all beams
+    d_y = -d_y
+    for story_i in range(n_stories):
+
+        for pier_i in range(n_piers):
+            marker_size = respose_top[story_i, pier_i] / max_value * max_marker_size
+            _ = ax.scatter(joints_x[story_i + 1, pier_i], joints_y[story_i + 1, pier_i] + d_y, s=marker_size,
+                           facecolors='none', color='m', alpha=0.9)
+
+    # Plot annotation below the frame to show scale
+    y_gap = -50
+    _ = ax.scatter(np.mean(joints_x[0]), y_gap, s=max_marker_size, facecolors='none', color='m', alpha=0.9)
+    _ = ax.text(np.mean(joints_x[0]) + max_marker_size / 4, y_gap * 2, 'Size = ' + str(max_value), size=18)
 
