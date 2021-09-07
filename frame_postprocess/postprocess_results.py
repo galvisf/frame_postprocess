@@ -1,13 +1,14 @@
 from .base import *
 
 
-def plot_building_at_t(t, edp, columns, beams, plot_scale, column_list, beam_list, ax):
+def plot_building_at_t(t, edp, columns, beams, plot_scale, column_list, beam_list, ax, x_gap=380, y_gap=500):
     # Take LineCollections objects of the columns and beams and plots them including the displacements at
     # a given time t
     #
     # INPUTS
-    #    t           = time for deformed shape plot
+    #    t           = index for deformed shape plot
     #    edp         = 2D np.array [floor_i, time] of the displacement of each floor
+    #               or 3D np.array [floor_i, axis_i, time] of the displacement of each panel zone
     #    columns     = LineCollection of columns
     #    beams       = LineCollections of beams
     #    plot_scale  = scale for amplifying displacements
@@ -17,9 +18,6 @@ def plot_building_at_t(t, edp, columns, beams, plot_scale, column_list, beam_lis
 
     ax.cla()
 
-    [_, n_pts] = edp.shape
-    edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
-
     [n_columns, _, _] = columns.shape
     [n_beams, _, _] = beams.shape
     n_stories = int(n_columns - n_beams)
@@ -28,25 +26,59 @@ def plot_building_at_t(t, edp, columns, beams, plot_scale, column_list, beam_lis
     columns_t = columns.copy()
     beams_t = beams.copy()
 
-    # Get number of columns per story and beams per floor
-    columns_story = np.sum(column_list, axis=1)
-    beams_floor = np.sum(beam_list, axis=1)
+    if edp.ndim == 3:
+        ### For disp on each column axis ###
 
-    # Add the displacement of the floor to each column and beam
-    i_col = 0
-    i_beam = 0
-    for i_story in range(n_stories):
+        # Add disp to the ground nodes
+        [_, n_piers, n_pts] = edp.shape
+        edp = np.insert(edp, 0, np.zeros((n_piers, n_pts)), axis=0)
+
+        # Add the displacement of the floor to each column and beam
         for i_end in range(2):
-            columns_t[i_col:i_col + columns_story[i_story] + 1, i_end, 0] = columns[
-                                                                            i_col:i_col + columns_story[i_story] + 1,
-                                                                            i_end, 0] + \
-                                                                            plot_scale * edp[i_story + i_end, t]
-        i_col = i_col + columns_story[i_story]
+            i_col = 0
+            for i_story in range(n_stories):
+                for i_pier in range(n_piers):
+                    if column_list[i_story, i_pier] == 1:
+                        columns_t[i_col, i_end, 0] = columns[i_col, i_end, 0] + \
+                                                     plot_scale * edp[i_story + i_end, i_pier, t]
+                        i_col += 1
+        for i_end in range(2):
+            i_beam = 0
+            for i_story in range(n_stories):
+                for i_bay in range(n_bays):
+                    if beam_list[i_story, i_bay] == 1:
+                        beams_t[i_beam, i_end, 0] = beams[i_beam, i_end, 0] + \
+                                                    plot_scale * edp[i_story + 1, i_bay + i_end, t]
+                    i_beam += 1
+    else:
+        ### For one disp input per floor ###
 
-        beams_t[i_beam:i_beam + beams_floor[i_story] + 1, :, 0] = beams[i_beam:i_beam + beams_floor[i_story] + 1, :,
-                                                                  0] + \
-                                                                  plot_scale * edp[i_story + 1, t]
-        i_beam = i_beam + beams_floor[i_story]
+        # Add disp to the ground nodes
+        [_, n_pts] = edp.shape
+        edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
+
+        # Get number of columns per story and beams per floor
+        columns_story = np.sum(column_list, axis=1)
+        beams_floor = np.sum(beam_list, axis=1)
+
+        # Add the displacement of the floor to each column and beam
+        i_col = 0
+        i_beam = 0
+        for i_story in range(n_stories):
+            for i_end in range(2):
+                columns_t[i_col:int(i_col + columns_story[i_story] + 1), i_end, 0] = columns[
+                                                                                     i_col:int(i_col + columns_story[
+                                                                                         i_story] + 1),
+                                                                                     i_end, 0] + \
+                                                                                     plot_scale * edp[
+                                                                                         i_story + i_end, t]
+            i_col = int(i_col + columns_story[i_story])
+
+            beams_t[i_beam:int(i_beam + beams_floor[i_story] + 1), :, 0] = beams[i_beam:int(
+                i_beam + beams_floor[i_story] + 1), :,
+                                                                           0] + \
+                                                                           plot_scale * edp[i_story + 1, t]
+            i_beam = int(i_beam + beams_floor[i_story])
 
     column_collection = LineCollection(columns, color='darkgray', linestyle='-')
     _ = ax.add_collection(column_collection)
@@ -64,8 +96,7 @@ def plot_building_at_t(t, edp, columns, beams, plot_scale, column_list, beam_lis
 
     building_height = np.max(columns[:, :, 1])
     building_width = np.max(columns[:, :, 0])
-    y_gap = 500
-    x_gap = 380  # 100
+
     _ = ax.set_xlim(-x_gap, building_width + x_gap)
     _ = ax.set_ylim(-y_gap, building_height + y_gap / 5)
     _ = ax.axis('off')
@@ -162,7 +193,7 @@ def plot_flaw_size(ax, joints_x, joints_y, a0, side):
     _ = ax.plot(joints_x_med, joints_y_med, 'o', color=color_specs[0], alpha=0.8)
     _ = ax.plot(joints_x_large, joints_y_large, 'o', color=color_specs[1], alpha=0.8)
 
-def get_beam_response(results_folder, beam_list, filenames):
+def get_beam_response(results_folder, beam_list, filenames, res_type='Max', t=0, def_desired='rot'):
     # Read response for beams, currently takes either the maximum or the last of the time history
     #
     # INPUTS
@@ -177,51 +208,106 @@ def get_beam_response(results_folder, beam_list, filenames):
     #                     'FI_LT'
     #                     'FI_RB'
     #                     'FI_RT'
-    #                     'hinge_left'
-    #                     'hinge_right'
+    #                     'hinge_left': plastic hinge on left end of beam
+    #                     'hinge_right': plastic hinge on right end of beam
+    #                     'def_left': fracture spring on left end of beam
+    #                     'def_right': fracture spring on right end of beam
+    #   res_type        = 'Max' : return the maximum response in the time history
+    #                     'at_t': return the response at the given time t
+    #                     'all_t': return the response history
+    #   t               = index for deformed shape plot
+    #   def_desired     = 'axial'
+    #                     'shear'
+    #                     'rot'
+    #                     Only applies for hinge_left/right and def_left/right
     #
     # OUTPUTS
     #    beam_results = dictionary with all results for the beams, one key for each filename
     #
 
     beam_results = dict(keys=filenames)
-    for file in filenames:
-        beam_results[file] = np.zeros(beam_list.shape)
 
     n_stories, n_bays = beam_list.shape
+    num_beams = np.sum(beam_list)
 
     # Read results as 1d array
     for file in filenames:
         filepath = posixpath.join(results_folder, file + '.out')
-
-        if file == 'hinge_left' or file == 'hinge_right':
-            # read axial def, shear def, rotation for each hinge
-            hinge_1d = np.loadtxt(filepath)
-            _, n_cols = hinge_1d.shape
-            axial_def = hinge_1d[:, 0:n_cols:3]
-            shear_V = hinge_1d[:, 1:n_cols:3]
-            rot = hinge_1d[:, 2:n_cols:3]
-
-            # read maximum rotation for each hinge
-            results_1d = np.max(abs(rot), axis=0)
-        # elif file != 'hinge_left' and file != 'hinge_right':
-        #     # read the response value at last time step (usually state of the fracture fiber)
-        #     results_1d = np.loadtxt(filepath)[-1, :]
+        
+        data_1d = np.loadtxt(filepath)
+        if data_1d.ndim == 1:
+            n_cols = 1
         else:
-            # read the maximum response value in entire time history
-            results_1d = np.max(abs(np.loadtxt(filepath)), axis=0)
+            _, n_cols = data_1d.shape
+        
+        if n_cols == 3*num_beams: #file == 'hinge_left' or file == 'hinge_right':
+            # read axial def, shear def, rotation for each hinge
+            axial_def = data_1d[:, 0:n_cols:3]
+            shear_def = data_1d[:, 1:n_cols:3]
+            rot = data_1d[:, 2:n_cols:3]
 
+            if def_desired == 'axial':
+                res = axial_def
+            elif def_desired == 'shear':
+                res = shear_def
+            else:
+                res = rot
+
+            if res_type == 'Max':
+                # read maximum response for each hinge
+                results_1d = np.max(abs(res), axis=0)
+            elif res_type == 'at_t':
+                # read response at index t for each hinge
+                aux = abs(res)
+                results_1d = aux[t]
+            else:
+                # read response history
+                results_1d = res
+
+        elif n_cols == num_beams:
+            if res_type == 'Max' or 'env' in file:
+                # read the maximum response value in entire time history
+                results_1d = np.max(abs(data_1d), axis=0)
+            elif res_type == 'at_t':
+                # read rotation at index t for each hinge
+                aux = abs(data_1d)
+                results_1d = aux[t]
+            else:
+                # read response history
+                results_1d = data_1d
+        else:
+            print('ERROR: output not consistent with number of beams')
+            print(file)
+            print('n_cols = ' + str(n_cols) + '; num_beams = ' + str(num_beams))
+
+        # Initialize final matrix to return the results
+        if res_type == 'all_t':
+            if results_1d.ndim == 1:
+                n_pts = len(results_1d)
+            else:
+                n_pts, _ = results_1d.shape
+            beam_results[file] = np.zeros([n_stories, n_bays, n_pts])
+        else:
+            beam_results[file] = np.zeros([n_stories, n_bays])
+
+        # Save in desired format
         i_element = 0
         for i_story in range(n_stories):
             for i_beam in range(n_bays):
                 if beam_list[i_story, i_beam] > 0:
-                    beam_results[file][i_story, i_beam] = results_1d[i_element]
+                    if res_type == 'all_t':
+                        if results_1d.ndim == 1:
+                            beam_results[file][i_story, i_beam, :] = results_1d
+                        else:
+                            beam_results[file][i_story, i_beam, :] = results_1d[:, i_element]
+                    else:
+                        beam_results[file][i_story, i_beam] = results_1d[i_element]
                     i_element += 1
 
     return beam_results
 
 
-def get_pz_response(results_folder, beam_list, column_list, filenames):
+def get_pz_response(results_folder, beam_list, column_list, filenames, res_type='Max', t=0):
     # Read response for panel zones, currently takes the maximum of the time history
     #
     # INPUTS
@@ -230,36 +316,68 @@ def get_pz_response(results_folder, beam_list, column_list, filenames):
     #    column_list    = 2D np.array with 1 or 0 for the columns that exist
     #    filenames      = list with any group of the following alternatives
     #                     'pz_rot'
+    #                     'all_disp': include time vector
+    #    res_type       = 'Max' : return the maximum response in the time history
+    #                     'at_t': return the response at the given time t
+    #                     'all_t': return the response history
+    #    t              = index for deformed shape plot
     #
     # OUTPUTS
     #    pz_results = dictionary with all results for the panel zones
     #
 
     pz_results = dict(keys=filenames)
-    for file in filenames:
-        pz_results[file] = np.zeros(column_list.shape)
-
     n_stories, n_pier = column_list.shape
 
     # Read results as 1d array
     for file in filenames:
         filepath = posixpath.join(results_folder, file + '.out')
 
-        res = np.loadtxt(filepath)
-        results_1d = np.max(abs(res), axis=0)  # read maximum response for each pz
+        res = np.loadtxt(filepath)  # read response history
 
+        # Format results
+        if file == 'all_disp':
+            # Remove time column
+            pz_results['time'] = res[:, 0]
+            res = res[:, 1:]
+        if file == 'pz_rot':
+            # take absolute
+            res = abs(res)
+
+        # Read requested data
+        if res_type == 'Max':
+            # read maximum response for each pz
+            results_1d = np.max(res, axis=0)
+        elif res_type == 'at_t':
+            # read response at index t for each pz
+            results_1d = aux[t]
+        else:
+            results_1d = res
+
+        # Initialize final matrix to return the results
+        if res_type == 'all_t':
+            n_pts, _ = results_1d.shape
+            pz_results[file] = np.zeros([n_stories, n_pier, n_pts])
+        else:
+            pz_results[file] = np.zeros([n_stories, n_pier])
+
+        # Save in desired format
         i_element = 0
         for i_story in range(n_stories):
             for i_pier in range(n_pier):
                 if beam_list[i_story, min(i_pier, n_pier - 2)] > 0 and (
                         column_list[i_story, i_pier] > 0 or column_list[i_story + 1, i_pier] > 0):
-                    pz_results[file][i_story, i_pier] = results_1d[i_element]
+
+                    if res_type == 'all_t':
+                        pz_results[file][i_story, i_pier, :] = results_1d[:, i_element]
+                    else:
+                        pz_results[file][i_story, i_pier] = results_1d[i_element]
                     i_element += 1
 
     return pz_results
 
 
-def get_column_response(results_folder, beam_list, column_list, filenames):
+def get_column_response(results_folder, beam_list, column_list, filenames, res_type='Max', t=0, def_desired='rot'):
     # Read response for columns, currently takes the maximum of the time history
     #
     # INPUTS
@@ -269,31 +387,114 @@ def get_column_response(results_folder, beam_list, column_list, filenames):
     #    filenames      = list with any group of the following alternatives
     #                     'hinge_bot'
     #                     'hinge_top'
+    #    res_type       = 'Max' : return the maximum response in the time history
+    #                     'at_t': return the response at the given time t
+    #                     'all_t': return the response history
+    #    t              = index for deformed shape plot
+    #   def_desired     = 'axial'
+    #                     'shear'
+    #                     'rot'
+    #                     Only applies for hinge_left/right and def_left/right
     #
     # OUTPUTS
     #    column_results = dictionary with all results for the columns, one key for each filename
     #
 
     column_results = dict(keys=filenames)
-    for file in filenames:
-        column_results[file] = np.zeros(column_list.shape)
 
     n_stories, n_pier = column_list.shape
+    num_columns = np.sum(column_list)
 
     # Read results as 1d array
     for file in filenames:
         filepath = posixpath.join(results_folder, file + '.out')
+        
+        data_1d = np.loadtxt(filepath)
+        _, n_cols = data_1d.shape
 
-        res = np.loadtxt(filepath)
-        results_1d = np.max(abs(res), axis=0)  # read maximum response for each pz
+        if n_cols == int(3*num_columns):
+            # read axial def, shear def, rotation for each hinge
+            axial_def = data_1d[:, 0:n_cols:3]
+            shear_def = data_1d[:, 1:n_cols:3]
+            rot = data_1d[:, 2:n_cols:3]
 
+            if def_desired == 'axial':
+                res = axial_def
+            elif def_desired == 'shear':
+                res = shear_def
+            else:
+                res = rot
+
+            if res_type == 'Max':
+                # read maximum response for each hinge
+                results_1d = np.max(abs(res), axis=0)
+            elif res_type == 'at_t':
+                # read response at index t for each hinge
+                aux = abs(res)
+                results_1d = aux[t]
+            else:
+                # read response history
+                results_1d = res
+
+        elif n_cols == int(6*num_columns):
+            # read moment for each hinge
+            M_bot = data_1d[:, 2:n_cols:6]
+            M_top = data_1d[:, 5:n_cols:6]
+
+            if res_type == 'Max':
+                # read maximum response for each hinge
+                if 'bot' in file:
+                    results_1d = np.max(abs(M_bot), axis=0)
+                elif 'top' in file:
+                    results_1d = np.max(abs(M_top), axis=0)
+            elif res_type == 'at_t':
+                # read response at index t for each hinge
+                if 'bot' in file:
+                    aux = abs(M_bot)
+                elif 'top' in file:
+                    aux = abs(M_top)
+                results_1d = aux[t]
+            else:
+                # read response history
+                if 'bot' in file:
+                    aux = M_bot
+                elif 'top' in file:
+                    aux = M_top
+
+        elif n_cols == num_columns:
+            if res_type == 'Max' or 'env' in file:
+                # read the maximum response value in entire time history
+                results_1d = np.max(abs(data_1d), axis=0)
+            elif res_type == 'at_t':
+                # read response at index t for each hinge
+                aux = abs(data_1d)
+                results_1d = aux[t]
+            else:
+                # read response history
+                results_1d = data_1d
+        else:
+            print('ERROR: output not consistent with number of columns')
+            print(file)
+            print('n_cols = ' + str(n_cols) + '; num_columns = ' + str(num_columns))
+
+        # Initialize final matrix to return the results
+        if res_type == 'all_t':
+            n_pts, _ = results_1d.shape
+            column_results[file] = np.zeros([n_stories, n_pier, n_pts])
+        else:
+            column_results[file] = np.zeros([n_stories, n_pier])
+
+        # Save in desired format
         i_element = 0
         for i_story in range(n_stories):
             for i_pier in range(n_pier):
                 if column_list[i_story, i_pier] > 0:  # jump if setbacks
-                    if i_story == 0 or beam_list[
-                        i_story - 1, min(i_pier, n_pier - 2)]:  # jump columns already created in atriums
-                        column_results[file][i_story, i_pier] = results_1d[i_element]
+                    if i_story == 0 or beam_list[i_story - 1, min(i_pier, n_pier - 2)]:  # jump columns already created in atriums
+                        if res_type == 'all_t':
+                            column_results[file][i_story, i_pier, :] = results_1d[:, i_element]
+                        else:
+                            column_results[file][i_story, i_pier] = results_1d[i_element]
+
                         i_element += 1
 
     return column_results
@@ -322,7 +523,7 @@ def get_story_response(results_folder, beam_list, filenames):
         filepath = posixpath.join(results_folder, 'story' + str(1) + '_' + file + '.out')
         response = np.loadtxt(filepath)
 
-        if file == 'disp':
+        if file == 'disp' or file == 'drift':
             story_response['time'] = response[:, 0]
             response = response[:, 1]
         elif file == 'drift_env' or file == 'acc_env':
@@ -331,9 +532,10 @@ def get_story_response(results_folder, beam_list, filenames):
         for i_story in range(n_stories - 1):
             i_story = i_story + 1
             filepath = posixpath.join(results_folder, 'story' + str(i_story + 1) + '_' + file + '.out')
+            # print(filepath)
             res = np.loadtxt(filepath)
 
-            if file == 'disp':
+            if file == 'disp' or file == 'drift':
                 res = res[:, 1]
             elif file == 'drift_env' or file == 'acc_env':
                 res = res[2]
@@ -422,10 +624,9 @@ def plot_fractures(ax, joints_x, joints_y, frac_results, marker_size=50, add_leg
         _ = ax.text(joints_x[0,0] * 1/5 + marker_size/4, y_gap - 50 + y_between, 'Top & Bottom fracture', size=18)
 
 
-def plot_fractures_edp(ax, t, edp, joints_x, joints_y, frac_results, plot_scale=1, marker_size=50, add_legend=False, one_fracture_color='m',
-                   both_fractures_color='r'):
-
-
+def plot_fractures_edp(ax, t, edp, joints_x, joints_y, frac_results, plot_scale=1, marker_size=50, add_legend=False,
+                       one_fracture_color='m',
+                       both_fractures_color='r'):
     # Retrieve basic info for loops
     n_stories, n_bays = joints_x.shape
     n_stories = n_stories - 1
@@ -438,19 +639,50 @@ def plot_fractures_edp(ax, t, edp, joints_x, joints_y, frac_results, plot_scale=
     joints_x_both = np.empty((0, 1))
     joints_y_both = np.empty((0, 1))
 
-    # Add the ground level displacement
-    [_, n_pts] = edp.shape
-    edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
+    if edp.ndim == 3:
+        ### For disp on each column axis ###
 
-    # Add displacement to each joint index
-    joints_x_t = joints_x.copy()
-    for story_i in range(n_stories):
-        joints_x_t[story_i, :] = joints_x_t[story_i, :] + plot_scale * edp[story_i, t] * np.ones(
-            len(joints_x_t[story_i, :]))
+        # Add disp to the ground nodes
+        [_, n_piers, n_pts] = edp.shape
+        edp = np.insert(edp, 0, np.zeros((n_piers, n_pts)), axis=0)
+
+        # Add displacement to each joint index
+        joints_x_t = joints_x.copy()
+        joints_x_t = joints_x_t + plot_scale * edp[:, :, t]
+
+    else:
+        ### For one disp input per floor ###
+
+        # Add the ground level displacement
+        [_, n_pts] = edp.shape
+        edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
+
+        # Add displacement to each joint index
+        joints_x_t = joints_x.copy()
+        for story_i in range(n_stories + 1):  # +1 because starts from the ground
+            joints_x_t[story_i, :] = joints_x_t[story_i, :] + plot_scale * edp[story_i, t] * np.ones(
+                len(joints_x_t[story_i, :]))
 
     # get matrix of fracture results
-    fracture_left = frac_results['frac_LB'] + frac_results['frac_LT'] * 2
-    fracture_right = frac_results['frac_RB'] + frac_results['frac_RT'] * 2
+    if frac_results['frac_LB'].ndim == 3 and frac_results['frac_LT'].ndim == 3 and \
+            frac_results['frac_RB'].ndim == 3 and frac_results['frac_RT'].ndim == 3:
+        ### response history given ###
+        frac_results_t = {}
+        frac_results_t['frac_LB'] = frac_results['frac_LB'][:,:,t]
+        frac_results_t['frac_RB'] = frac_results['frac_RB'][:,:,t]
+        frac_results_t['frac_LT'] = frac_results['frac_LT'][:,:,t]
+        frac_results_t['frac_RT'] = frac_results['frac_RT'][:,:,t]
+
+        fracture_left = frac_results_t['frac_LB'] + frac_results_t['frac_LT'] * 2
+        fracture_right = frac_results_t['frac_RB'] + frac_results_t['frac_RT'] * 2
+    elif frac_results['frac_LB'].ndim == 2 and frac_results['frac_LT'].ndim == 2 and \
+            frac_results['frac_RB'].ndim == 2 and frac_results['frac_RT'].ndim == 2:
+        ### snapshot of the response given ###
+        fracture_left = frac_results['frac_LB'] + frac_results['frac_LT'] * 2
+        fracture_right = frac_results['frac_RB'] + frac_results['frac_RT'] * 2
+    else:
+        print('ERROR: non consistent inputs of response to plot')
+        return
 
     # Review left side of all beams
     for story_i in range(n_stories):
@@ -496,17 +728,18 @@ def plot_fractures_edp(ax, t, edp, joints_x, joints_y, frac_results, plot_scale=
 
     _ = ax.scatter(joints_x_bot, joints_y_bot, s=marker_size, color=one_fracture_color)
     _ = ax.scatter(joints_x_both, joints_y_both, s=marker_size, color=both_fractures_color)
-    _ = ax.scatter(joints_x_top, joints_y_top, s=marker_size, color='tab:blue')
+    _ = ax.scatter(joints_x_top, joints_y_top, s=marker_size, color='cyan')
 
     # Plot annotations below the frame to show scale for all non-zero bins
     if add_legend:
         y_gap = -100
         y_between = -150
-        _ = ax.scatter(joints_x_t[0,0] * 1/5, y_gap, s=marker_size, color='m')
-        _ = ax.text(joints_x_t[0,0] * 1/5 + marker_size/4, y_gap - 50, 'Bottom fracture', size=18)
+        _ = ax.scatter(joints_x_t[0, 0] * 1 / 5, y_gap, s=marker_size, color='m')
+        _ = ax.text(joints_x_t[0, 0] * 1 / 5 + marker_size / 4, y_gap - 50, 'Bottom fracture', size=18)
 
-        _ = ax.scatter(joints_x_t[0,0] * 1/5, y_gap+y_between, s=marker_size, color='r')
-        _ = ax.text(joints_x_t[0,0] * 1/5 + marker_size/4, y_gap - 50 + y_between, 'Top & Bottom fracture', size=18)
+        _ = ax.scatter(joints_x_t[0, 0] * 1 / 5, y_gap + y_between, s=marker_size, color='r')
+        _ = ax.text(joints_x_t[0, 0] * 1 / 5 + marker_size / 4, y_gap - 50 + y_between, 'Top & Bottom fracture',
+                    size=18)
 
 
 def plot_beam_response(ax, joints_x, joints_y, respose_left, respose_right, d_x=30, max_value=1,
@@ -530,8 +763,10 @@ def plot_beam_response(ax, joints_x, joints_y, respose_left, respose_right, d_x=
     n_bays = n_bays - 1
 
     # Set all values greater than the maximum equal to the maximum
-    respose_left[respose_left >= max_value] = max_value
-    respose_right[respose_right >= max_value] = max_value
+    respose_left_t = respose_left.copy()
+    respose_right_t = respose_right.copy()
+    respose_left_t[respose_left >= max_value] = max_value
+    respose_right_t[respose_right >= max_value] = max_value
 
     # Review left side of all beams
     for story_i in range(n_stories):
@@ -539,7 +774,7 @@ def plot_beam_response(ax, joints_x, joints_y, respose_left, respose_right, d_x=
         for bay_i in range(n_bays):
             col_i = bay_i
 
-            marker_size = respose_left[story_i, bay_i] / max_value * max_marker_size
+            marker_size = respose_left_t[story_i, bay_i] / max_value * max_marker_size
             _ = ax.scatter(joints_x[story_i + 1, col_i] + d_x, joints_y[story_i + 1, col_i], s=marker_size,
                            facecolors='none', color='m', alpha=0.9)
 
@@ -550,7 +785,7 @@ def plot_beam_response(ax, joints_x, joints_y, respose_left, respose_right, d_x=
         for bay_i in range(n_bays):
             col_i = bay_i + 1
 
-            marker_size = respose_right[story_i, bay_i] / max_value * max_marker_size
+            marker_size = respose_right_t[story_i, bay_i] / max_value * max_marker_size
             _ = ax.scatter(joints_x[story_i + 1, col_i] + d_x, joints_y[story_i + 1, col_i], s=marker_size,
                            facecolors='none', color='m', alpha=0.9)
 
@@ -588,8 +823,10 @@ def plot_beam_response_bins(ax, joints_x, joints_y, respose_left, respose_right,
     n_bays = n_bays - 1
 
     # Set all values greater than the maximum equal to the maximum
-    respose_left[respose_left >= max_value] = max_value
-    respose_right[respose_right >= max_value] = max_value
+    respose_left_t = respose_left.copy()
+    respose_right_t = respose_right.copy()
+    respose_left_t[respose_left >= max_value] = max_value
+    respose_right_t[respose_right >= max_value] = max_value
 
     # Marker sizes
     n_bins = len(bins)
@@ -606,10 +843,10 @@ def plot_beam_response_bins(ax, joints_x, joints_y, respose_left, respose_right,
 
             # Get the index of the correct bin for marker size
             curr_bin = 1
-            if respose_left[story_i, bay_i] > np.max(bins):
+            if respose_left_t[story_i, bay_i] > np.max(bins):
                 curr_bin = len(bins)
             else:
-                while respose_left[story_i, bay_i] > bins[curr_bin]:
+                while respose_left_t[story_i, bay_i] > bins[curr_bin]:
                     curr_bin += 1
             # Plot circle
             _ = ax.scatter(joints_x[story_i + 1, col_i] + d_x, joints_y[story_i + 1, col_i],
@@ -624,10 +861,10 @@ def plot_beam_response_bins(ax, joints_x, joints_y, respose_left, respose_right,
 
             # Get the index of the correct bin for marker size
             curr_bin = 1
-            if respose_right[story_i, bay_i] > np.max(bins):
+            if respose_right_t[story_i, bay_i] > np.max(bins):
                 curr_bin = len(bins)
             else:
-                while respose_right[story_i, bay_i] > bins[curr_bin]:
+                while respose_right_t[story_i, bay_i] > bins[curr_bin]:
                     curr_bin += 1
             # Plot circle
             _ = ax.scatter(joints_x[story_i + 1, col_i] + d_x, joints_y[story_i + 1, col_i],
@@ -660,6 +897,7 @@ def plot_beam_response_bins_edp(ax, t, edp, joints_x, joints_y, respose_left, re
     # INPUTS
     #     t              = time for deformed shape plot
     #     edp            = 2D np.array [floor_i, time] of the displacement of each floor
+    #                    or 3D np.array [floor_i, axis_i, time] of the displacement of each panel zone
     #     joints_x        = np.array of x coordinates of all beam-to-column joints
     #     joints_y        = np.array of y coordinates of all beam-to-column joints
     #     respose_left    = 2D np.array of the response to be plotted on the left side of beams
@@ -680,9 +918,21 @@ def plot_beam_response_bins_edp(ax, t, edp, joints_x, joints_y, respose_left, re
     n_stories = n_stories - 1
     n_bays = n_bays - 1
 
-    # Set all values greater than the maximum equal to the maximum
-    respose_left[respose_left >= max_value] = max_value
-    respose_right[respose_right >= max_value] = max_value
+    # Get response at t and replace all values greater than the maximum equal to the maximum
+    if respose_left.ndim == 3 and respose_right.ndim == 3:
+        ### response history given ###
+        respose_left_t = respose_left[:,:,t].copy()
+        respose_right_t = respose_right[:,:,t].copy()
+        respose_left_t[respose_left_t >= max_value] = max_value
+        respose_right_t[respose_right_t >= max_value] = max_value
+    elif respose_left.ndim == 2 and respose_right.ndim == 2:
+        ### snapshot of the response given ###
+        respose_left_t = respose_left.copy()
+        respose_right_t = respose_right.copy()
+        respose_left_t[respose_left_t >= max_value] = max_value
+        respose_right_t[respose_right_t >= max_value] = max_value
+    else:
+        print('ERROR: non consistent inputs of response to plot')
 
     # Marker sizes
     n_bins = len(bins)
@@ -691,15 +941,29 @@ def plot_beam_response_bins_edp(ax, t, edp, joints_x, joints_y, respose_left, re
         marker_size_bin[bin_i + 1] = max_marker_size / (2 * (n_bins - 1)) * (1 + bin_i * 2)
     marker_size_bin[-1] = max_marker_size
 
-    # Add the ground level displacement
-    [_, n_pts] = edp.shape
-    edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
+    if edp.ndim == 3:
+    ### For disp on each column axis ###
 
-    # Add displacement to each joint index
-    joints_x_t = joints_x.copy()
-    for story_i in range(n_stories):
-        joints_x_t[story_i, :] = joints_x_t[story_i, :] + plot_scale * edp[story_i, t] * np.ones(
-            len(joints_x_t[story_i, :]))
+        # Add disp to the ground nodes
+        [_, n_piers, n_pts] = edp.shape
+        edp = np.insert(edp, 0, np.zeros((n_piers, n_pts)), axis=0)
+
+        # Add displacement to each joint index
+        joints_x_t = joints_x.copy()
+        joints_x_t = joints_x_t + plot_scale * edp[:, :, t]
+
+    else:
+    ### For one disp input per floor ###
+
+        # Add the ground level displacement
+        [_, n_pts] = edp.shape
+        edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
+
+        # Add displacement to each joint index
+        joints_x_t = joints_x.copy()
+        for story_i in range(n_stories + 1):  # +1 because starts from the ground
+            joints_x_t[story_i, :] = joints_x_t[story_i, :] + plot_scale * edp[story_i, t] * np.ones(
+                len(joints_x_t[story_i, :]))
 
     # Review left side of all beams
     for story_i in range(n_stories):
@@ -709,10 +973,10 @@ def plot_beam_response_bins_edp(ax, t, edp, joints_x, joints_y, respose_left, re
 
             # Get the index of the correct bin for marker size
             curr_bin = 1
-            if respose_left[story_i, bay_i] > np.max(bins):
+            if respose_left_t[story_i, bay_i] > np.max(bins):
                 curr_bin = len(bins)
             else:
-                while respose_left[story_i, bay_i] > bins[curr_bin]:
+                while respose_left_t[story_i, bay_i] > bins[curr_bin]:
                     curr_bin += 1
             # Plot circle
             _ = ax.scatter(joints_x_t[story_i + 1, col_i] + d_x, joints_y[story_i + 1, col_i],
@@ -727,10 +991,10 @@ def plot_beam_response_bins_edp(ax, t, edp, joints_x, joints_y, respose_left, re
 
             # Get the index of the correct bin for marker size
             curr_bin = 1
-            if respose_right[story_i, bay_i] > np.max(bins):
+            if respose_right_t[story_i, bay_i] > np.max(bins):
                 curr_bin = len(bins)
             else:
-                while respose_right[story_i, bay_i] > bins[curr_bin]:
+                while respose_right_t[story_i, bay_i] > bins[curr_bin]:
                     curr_bin += 1
             # Plot circle
             _ = ax.scatter(joints_x_t[story_i + 1, col_i] + d_x, joints_y[story_i + 1, col_i],
@@ -805,14 +1069,16 @@ def plot_column_response(ax, joints_x, joints_y, respose_bot, respose_top, d_y=3
     n_stories = n_stories - 1
 
     # Set all values greater than the maximum equal to the maximum
-    respose_bot[respose_bot >= max_value] = max_value
-    respose_top[respose_top >= max_value] = max_value
+    respose_bot_t = respose_bot.copy()
+    respose_top_t = respose_top.copy()
+    respose_bot_t[respose_bot >= max_value] = max_value
+    respose_top_t[respose_top >= max_value] = max_value
 
     # Review bottom side of all beams
     for story_i in range(n_stories):
 
         for pier_i in range(n_piers):
-            marker_size = respose_bot[story_i, pier_i] / max_value * max_marker_size
+            marker_size = respose_bot_t[story_i, pier_i] / max_value * max_marker_size
             _ = ax.scatter(joints_x[story_i, pier_i], joints_y[story_i, pier_i] + d_y, s=marker_size,
                            facecolors='none', color='m', alpha=0.9)
 
@@ -821,7 +1087,7 @@ def plot_column_response(ax, joints_x, joints_y, respose_bot, respose_top, d_y=3
     for story_i in range(n_stories):
 
         for pier_i in range(n_piers):
-            marker_size = respose_top[story_i, pier_i] / max_value * max_marker_size
+            marker_size = respose_top_t[story_i, pier_i] / max_value * max_marker_size
             _ = ax.scatter(joints_x[story_i + 1, pier_i], joints_y[story_i + 1, pier_i] + d_y, s=marker_size,
                            facecolors='none', color='m', alpha=0.9)
 
@@ -829,6 +1095,127 @@ def plot_column_response(ax, joints_x, joints_y, respose_bot, respose_top, d_y=3
     y_gap = -50
     _ = ax.scatter(np.mean(joints_x[0]), y_gap, s=max_marker_size, facecolors='none', color='m', alpha=0.9)
     _ = ax.text(np.mean(joints_x[0]) + max_marker_size / 4, y_gap * 2, 'Size = ' + str(max_value), size=18)
+
+
+def plot_column_response_bins_edp(ax, t, edp, joints_x, joints_y, respose_bot, respose_top, d_y=30, max_value=1,
+                                  plot_scale=1, max_marker_size=300, labelText='\\theta_p',
+                                  bins=np.array([0, 0.5, 0.75, 0.9]),
+                                  edgecolor='k', facecolors='none', addLegend=True):
+    # Plots response of any continuous quantity of beam end response as a circle of varying size in the correct location
+    # in the building. The circle sizes have discrete sizes based on the values in the bin vector
+    # The first category has no marker, and the others increase linearly until the maximum size
+    #
+    # INPUTS
+    #     t               = time for deformed shape plot
+    #     edp             = 2D np.array [floor_i, time] of the displacement of each floor
+    #                    or 3D np.array [floor_i, axis_i, time] of the displacement of each panel zone
+    #     joints_x        = np.array of x coordinates of all beam-to-column joints
+    #     joints_y        = np.array of y coordinates of all beam-to-column joints
+    #     respose_bot     = 2D np.array of the response to be plotted on the bottom side of beams
+    #     respose_top     = 2D np.array of the response to be plotted on the top side of beams
+    #     d_y             = offset in y for placing the circle
+    #     max_value       = maximum value of the quantity to plot
+    #     plot_scale  = scale for amplifying displacements
+    #     max_marker_size = maximum size of the marker
+    #     bins            = np.array of the limits of the beam response to define bins
+    #     edgecolor       = color of the edge of the markers
+    #     facecolors      = 'none' open circles
+    #                     = color of the fill
+    #     addLegend       = 'True' add the legend for the bins
+    #
+
+    # Retrieve basic info for loops
+    n_stories, n_piers = joints_x.shape
+    n_stories = n_stories - 1
+
+    # Set all values greater than the maximum equal to the maximum
+    if respose_bot.ndim == 3 and respose_top.ndim == 3:
+        respose_bot_t = respose_bot[:,:,t].copy()
+        respose_top_t = respose_top[:,:,t].copy()
+    elif respose_bot.ndim == 2 and respose_top.ndim == 2:
+        respose_bot_t = respose_bot.copy()
+        respose_top_t = respose_top.copy()
+    respose_bot_t[respose_bot_t >= max_value] = max_value
+    respose_top_t[respose_top_t >= max_value] = max_value
+
+    # Marker sizes
+    n_bins = len(bins)
+    marker_size_bin = np.zeros(n_bins)
+    for bin_i in range(n_bins - 1):
+        marker_size_bin[bin_i + 1] = max_marker_size / (2 * (n_bins - 1)) * (1 + bin_i * 2)
+    marker_size_bin[-1] = max_marker_size
+
+    if edp.ndim == 3:
+        ### For disp on each column axis ###
+        # Add disp to the ground nodes
+        [_, n_piers, n_pts] = edp.shape
+        edp = np.insert(edp, 0, np.zeros((n_piers, n_pts)), axis=0)
+
+        # Add displacement to each joint index
+        joints_x_t = joints_x.copy()
+        joints_x_t = joints_x_t + plot_scale * edp[:, :, t]
+
+    else:
+        ### For one disp input per floor ###
+
+        # Add the ground level displacement
+        [_, n_pts] = edp.shape
+        edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
+
+        # Add displacement to each joint index
+        joints_x_t = joints_x.copy()
+        for story_i in range(n_stories + 1):  # +1 because starts from the ground
+            joints_x_t[story_i, :] = joints_x_t[story_i, :] + plot_scale * edp[story_i, t] * np.ones(
+                len(joints_x_t[story_i, :]))
+
+    # Review bottom side of all beams
+    for story_i in range(n_stories):
+
+        for pier_i in range(n_piers):
+            # Get the index of the correct bin for marker size
+            curr_bin = 1
+            if respose_bot_t[story_i, pier_i] > np.max(bins):
+                curr_bin = len(bins)
+            else:
+                while respose_bot_t[story_i, pier_i] > bins[curr_bin]:
+                    curr_bin += 1
+            # Plot circle
+            _ = ax.scatter(joints_x_t[story_i, pier_i], joints_y[story_i, pier_i] + d_y,
+                           s=marker_size_bin[curr_bin - 1], facecolors=facecolors, color=edgecolor, alpha=0.9)
+
+    # Review top side of all beams
+    d_y = -d_y
+    for story_i in range(n_stories):
+
+        for pier_i in range(n_piers):
+            # Get the index of the correct bin for marker size
+            curr_bin = 1
+            if respose_top_t[story_i, pier_i] > np.max(bins):
+                curr_bin = len(bins)
+            else:
+                while respose_top_t[story_i, pier_i] > bins[curr_bin]:
+                    curr_bin += 1
+            # Plot circle
+            _ = ax.scatter(joints_x_t[story_i + 1, pier_i], joints_y[story_i + 1, pier_i] + d_y,
+                           s=marker_size_bin[curr_bin - 1], facecolors=facecolors, color=edgecolor, alpha=0.9)
+
+    # Plot annotations below the frame to show scale for all non-zero bins
+    if addLegend:
+        y_gap = -50
+        y_between = -150
+        for bin_i in range(n_bins - 2):
+            _ = ax.scatter(np.mean(joints_x[0]) * 1 / 5, y_gap + y_between * bin_i,
+                           s=marker_size_bin[bin_i + 1],
+                           facecolors=facecolors,
+                           color=edgecolor, alpha=0.9)
+            _ = ax.text(np.mean(joints_x[0]) * 1 / 5 + max_marker_size / 4, y_gap * 2 + y_between * bin_i,
+                        labelText + ' = ' + str(bins[bin_i + 1]) + ' - ' + str(bins[bin_i + 2]), size=18)
+
+        _ = ax.scatter(np.mean(joints_x[0]) * 1 / 5, y_gap + y_between * (bin_i + 1), s=max_marker_size,
+                       facecolors=facecolors,
+                       color=edgecolor, alpha=0.9)
+        _ = ax.text(np.mean(joints_x[0]) * 1 / 5 + max_marker_size / 4, y_gap * 2 + y_between * (bin_i + 1),
+                    labelText + ' $\geq$ ' + str(np.max(bins)), size=18)
 
 
 def panel_zone_model2021(dc, bcf, tcf, tcw, tdp, db, Fy=45, Es=2900):
@@ -1132,3 +1519,148 @@ def di_fema352_deterministic(beam_list, column_list, frac_simulated, webfiber_st
     FDI = np.divide(di / 4, n)
 
     return FDI
+
+
+def compute_msa_fragility(p_stripes, stripe_values, plot):
+    # compute_msa_fragility takes the fraction of collapse cases for a list of stripes and
+    # fits a lognormal probability function
+    #
+    # INPUTS
+    #   p_stripes       = list with the fraction of collapses per stri[e
+    #   stripe_values   = list of IM value per stripe
+    #   plot            = true/false to plot fragility
+    #
+    # OUTPUTS
+    #   median  = median IM of collapse
+    #   beta    = log standard deviation of collapse fragility
+    #
+
+    # set the initial median
+    p_target = 0.5
+    # linear interpolation for the im resulting in p_target collapses
+    if np.any(p_stripes >= p_target):
+        median_0 = np.interp(p_target, p_stripes, stripe_values)
+    # or take the max im value
+    else:
+        median_0 = stripe_values[-1]
+
+    # standard deviation starts with 0.2
+    sigma0 = 0.2
+
+    # convergence flag for optimization
+    conv_flag = 0
+    while not conv_flag and sigma0 < 1.0:
+        # Fit fragility using maximimun likelihood
+        x0 = [median_0, sigma0]
+        res = optimize.minimize(msa_log_likelihood, x0, args=(stripe_values, p_stripes),
+                                method='Nelder-Mead', options={'maxiter': 100})
+        conv_flag = res.success
+        median, beta = res.x
+        sigma0 = sigma0 + 0.05
+
+    if plot:
+        y = np.linspace(0.001, 1, num=100)
+        x = stats.lognorm(beta, scale=median).ppf(y)
+        _ = plt.plot(x, y)
+        _ = plt.scatter(stripe_values, p_stripes)
+
+    return median, beta
+
+
+def msa_log_likelihood(parameters, stripe_values, p_stripes):
+    # msa_log_likelihood computes the maximum likelihood for a lognormal distribution
+
+    [median, beta] = parameters
+
+    # big sampling number
+    bignum = 1000
+
+    num_yy = np.around(bignum * p_stripes).reshape((-1, 1))
+    n_stripes = len(stripe_values)
+
+    p_stripes = [stats.lognorm(beta, scale=median).cdf(im) for im in stripe_values]
+    stripe_likelihoods = np.array([stats.binom(bignum, p_stripes[i]).pmf(num_yy[i]) for i in range(n_stripes)])
+
+    log_likelihood = - np.sum(np.log(stripe_likelihoods))
+
+    return log_likelihood
+
+
+def plot_response_in_height(EDP, edp2plot, title_text, edp_limits, ax):
+    # plot_response_in_height plots the story edp's for a building along the height
+    #
+    # INPUTS
+    #   EDP        = name of the EDP to plot, used to get x-label (often 'PID' or 'RID' or 'PFA')
+    #   edp2plot   = list of np.arrays (one per record) or 2D-np.array (n_record x n_stories) with the EDP values to plot
+    #   title_text = string for plot text
+    #   edp_limits = [min x, max x] to plot
+    #   ax         = axis for the plot
+    #
+
+    # format input
+    edp2plot = np.array(edp2plot).astype(float)
+    n_records, n_stories = edp2plot.shape
+    story_list = np.linspace(1, n_stories, n_stories)
+
+    # Add ground values (repeat those from first story)
+    #     edp2plot = np.concatenate((edp2plot[:,0].reshape(1,-1), edp2plot.T)).T
+
+    # Compute median and std deviation
+    median = np.mean(np.log(edp2plot), 0)
+    std_dev = np.std(np.log(edp2plot), 0)
+
+    # Get x-label
+    if EDP == 'PID':
+        edp_label = '$PID_{max}$ [mm/mm]'
+    elif EDP == 'RID':
+        edp_label = '$RID_{max}$ [mm/mm]'
+    elif EDP == 'PFA':
+        edp_label = '$PFA_{max}$ [g]'
+    else:
+        edp_label = ''
+
+    for i in range(len(edp2plot)):
+        _ = ax.step(edp2plot[i], story_list, color='lightgrey', linewidth=1)
+    _ = ax.step(np.exp(median), story_list, color='tab:blue', linewidth=2)
+    _ = ax.step(np.exp(median + std_dev), story_list, color='tab:blue', linestyle='dashed', linewidth=1.5)
+    _ = ax.step(np.exp(median - std_dev), story_list, color='tab:blue', linestyle='dashed', linewidth=1.5)
+    _ = ax.grid(which='both', alpha=0.3)
+    if edp_limits != 999:
+        _ = ax.set_xlim(edp_limits)
+    _ = ax.set_ylim([1, n_stories])
+    _ = ax.set_xlabel(edp_label)
+    _ = ax.set_ylabel('Story #')
+    _ = ax.set_title(title_text, loc='right')
+    # _ = plt.legend(loc='best', bbox_to_anchor=(1, 0, 0.45, 0.5))
+    _ = plt.tight_layout()
+
+def risk_convolution(im_exceedance_frequency, im_list, fragilities):
+    # plot_response_in_height plots the story edp's for a building along the height
+    #
+    # INPUTS
+    #   im_exceedance_frequency = mean annual freq. of exceedence of each IM in im_list for the hazard curve
+    #   im_list                 = 1D array or list with the IM values for the hazard curve
+    #   fragilities             = dictionary with 'Median' and 'Beta' lists for the buildings to
+    #                             compute collapse risk
+    #
+
+    medians = fragilities['Median']
+    betas = fragilities['Beta']
+
+    freq = im_exceedance_frequency
+    dim = im_list[1] - im_list[0]
+
+    dfreq_im = [np.abs((freq[i + 1] - freq[i]) / dim) for i in range(len(im_list) - 1)]
+    dfreq_im = np.append(dfreq_im, dfreq_im[-1])
+
+    if type(medians) is not list:
+        medians = [medians]
+        betas = [betas]
+
+    freq_collapse = np.zeros(len(medians))
+    for median, beta, i in zip(medians, betas, range(len(medians))):
+        p_collapse_im = stats.lognorm(beta, scale=median).cdf(im_list)
+        y = p_collapse_im * dfreq_im
+        freq_collapse[i] = np.trapz(y, dx=dim)
+
+    return freq_collapse
