@@ -28,9 +28,9 @@ from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
 def set_plot_formatting():
     # set up plot formatting
-    SMALL_SIZE = 12#12  15
+    SMALL_SIZE = 15#12  15
     MEDIUM_SIZE = 15#15  18
-    BIGGER_SIZE = 25#18  25
+    BIGGER_SIZE = 15#18  25
 
     # plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
     # plt.rc('axes', titlesize=MEDIUM_SIZE)    # fontsize of the axes title

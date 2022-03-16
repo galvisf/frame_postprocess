@@ -29,9 +29,10 @@ def plot_building_at_t(t, edp, columns, beams, plot_scale, column_list, beam_lis
     if edp.ndim == 3:
         ### For disp on each column axis ###
 
-        # Add disp to the ground nodes
-        [_, n_piers, n_pts] = edp.shape
-        edp = np.insert(edp, 0, np.zeros((n_piers, n_pts)), axis=0)
+        # Add disp to the ground nodes (if not already in edp matrix)
+        [n_disps, n_piers, n_pts] = edp.shape
+        if n_disps < n_stories + 1:
+            edp = np.insert(edp, 0, np.zeros((n_piers, n_pts)), axis=0)
 
         # Add the displacement of the floor to each column and beam
         for i_end in range(2):
@@ -49,13 +50,41 @@ def plot_building_at_t(t, edp, columns, beams, plot_scale, column_list, beam_lis
                     if beam_list[i_story, i_bay] == 1:
                         beams_t[i_beam, i_end, 0] = beams[i_beam, i_end, 0] + \
                                                     plot_scale * edp[i_story + 1, i_bay + i_end, t]
-                    i_beam += 1
+                        i_beam += 1
+
+    elif edp.ndim == 2:
+        ### For disp on each column axis and no time response ###
+
+        # Add disp to the ground nodes (if not already in edp matrix)
+        [n_disps, n_piers] = edp.shape
+        if n_disps < n_stories + 1:
+            edp = np.insert(edp, 0, np.zeros((1, n_piers)), axis=0)
+
+        # Add the displacement of the floor to each column and beam
+        for i_end in range(2):
+            i_col = 0
+            for i_story in range(n_stories):
+                for i_pier in range(n_piers):
+                    if column_list[i_story, i_pier] == 1:
+                        columns_t[i_col, i_end, 0] = columns[i_col, i_end, 0] + \
+                                                     plot_scale * edp[i_story + i_end, i_pier]
+                        i_col += 1
+        for i_end in range(2):
+            i_beam = 0
+            for i_story in range(n_stories):
+                for i_bay in range(n_bays):
+                    if beam_list[i_story, i_bay] == 1:
+                        beams_t[i_beam, i_end, 0] = beams[i_beam, i_end, 0] + \
+                                                    plot_scale * edp[i_story + 1, i_bay + i_end]
+                        i_beam += 1
+
     else:
         ### For one disp input per floor ###
 
-        # Add disp to the ground nodes
-        [_, n_pts] = edp.shape
-        edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
+        # Add disp to the ground nodes (if not already in edp matrix)
+        [n_disps, n_pts] = edp.shape
+        if n_disps < n_stories + 1:
+            edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
 
         # Get number of columns per story and beams per floor
         columns_story = np.sum(column_list, axis=1)
@@ -66,12 +95,8 @@ def plot_building_at_t(t, edp, columns, beams, plot_scale, column_list, beam_lis
         i_beam = 0
         for i_story in range(n_stories):
             for i_end in range(2):
-                columns_t[i_col:int(i_col + columns_story[i_story] + 1), i_end, 0] = columns[
-                                                                                     i_col:int(i_col + columns_story[
-                                                                                         i_story] + 1),
-                                                                                     i_end, 0] + \
-                                                                                     plot_scale * edp[
-                                                                                         i_story + i_end, t]
+                columns_t[i_col:int(i_col + columns_story[i_story] + 1), i_end, 0] = columns[i_col:int(i_col + columns_story[i_story] + 1), i_end, 0] + \
+                                                                                     plot_scale * edp[i_story + i_end, t]
             i_col = int(i_col + columns_story[i_story])
 
             beams_t[i_beam:int(i_beam + beams_floor[i_story] + 1), :, 0] = beams[i_beam:int(
@@ -80,16 +105,16 @@ def plot_building_at_t(t, edp, columns, beams, plot_scale, column_list, beam_lis
                                                                            plot_scale * edp[i_story + 1, t]
             i_beam = int(i_beam + beams_floor[i_story])
 
-    column_collection = LineCollection(columns, color='darkgray', linestyle='-')
+    column_collection = LineCollection(columns, color='darkgray', linestyle='-', linewidths=1)
     _ = ax.add_collection(column_collection)
 
-    beam_collection = LineCollection(beams, color='darkgray', linestyle='-')
+    beam_collection = LineCollection(beams, color='darkgray', linestyle='-', linewidths=1)
     _ = ax.add_collection(beam_collection)
 
-    column_collection = LineCollection(columns_t, color='k', linestyle='-')
+    column_collection = LineCollection(columns_t, color='k', linestyle='-', linewidths=1)
     _ = ax.add_collection(column_collection)
 
-    beam_collection = LineCollection(beams_t, color='k', linestyle='-')
+    beam_collection = LineCollection(beams_t, color='k', linestyle='-', linewidths=1)
     _ = ax.add_collection(beam_collection)
 
     _ = ax.axis('scaled')
@@ -301,7 +326,10 @@ def get_beam_response(results_folder, beam_list, filenames, res_type='Max', t=0,
                         else:
                             beam_results[file][i_story, i_beam, :] = results_1d[:, i_element]
                     else:
-                        beam_results[file][i_story, i_beam] = results_1d[i_element]
+                        if results_1d.ndim == 0:
+                            beam_results[file][i_story, i_beam] = results_1d
+                        else:
+                            beam_results[file][i_story, i_beam] = results_1d[i_element]
                     i_element += 1
 
     return beam_results
@@ -334,7 +362,6 @@ def get_pz_response(results_folder, beam_list, column_list, filenames, res_type=
         filepath = posixpath.join(results_folder, file + '.out')
 
         res = np.loadtxt(filepath)  # read response history
-
         # Format results
         if file == 'all_disp':
             # Remove time column
@@ -500,6 +527,7 @@ def get_column_response(results_folder, beam_list, column_list, filenames, res_t
     return column_results
 
 
+
 def get_story_response(results_folder, beam_list, filenames):
     # INPUTS
     #    results_folder = path to folder with the results of NLRHA
@@ -520,23 +548,59 @@ def get_story_response(results_folder, beam_list, filenames):
 
     # Read results as 1d array
     for file in filenames:
-        filepath = posixpath.join(results_folder, 'story' + str(1) + '_' + file + '.out')
-        response = np.loadtxt(filepath)
+        # Collect results for first story
+        if file == 'drift_max':
+            filepath = posixpath.join(results_folder, 'story' + str(1) + '_drift.out')
+        else:
+            filepath = posixpath.join(results_folder, 'story' + str(1) + '_' + file + '.out')
+        try:
+            response = np.loadtxt(filepath)
+        except:
+            print('ERROR IN FILE ' + filepath)
+            return
 
-        if file == 'disp' or file == 'drift':
+        if file == 'drift_max':
+            response = np.max(np.abs(response[:, 1]))  # remove time column
+
+        if file == 'drift':
+            response = response[:, 1]  # remove time column
+
+        if file == 'disp':
             story_response['time'] = response[:, 0]
             response = response[:, 1]
+
         elif file == 'drift_env' or file == 'acc_env':
             response = response[2]
 
+        # Collect results for all other stories
         for i_story in range(n_stories - 1):
             i_story = i_story + 1
-            filepath = posixpath.join(results_folder, 'story' + str(i_story + 1) + '_' + file + '.out')
+            if file == 'drift_max':
+                filepath = posixpath.join(results_folder, 'story' + str(i_story + 1) + '_drift.out')
+            else:
+                filepath = posixpath.join(results_folder, 'story' + str(i_story + 1) + '_' + file + '.out')
             # print(filepath)
-            res = np.loadtxt(filepath)
+
+            try:
+                res = np.loadtxt(filepath)
+            except:
+                print('ERROR IN FILE ' + filepath)
+                return
 
             if file == 'disp' or file == 'drift':
                 res = res[:, 1]
+
+                # Make sure all time histories have same length as first story
+                n_pts = len(response.T)
+                if len(res) < n_pts:
+                    aux = np.zeros(n_pts)
+                    aux[:len(res)] = res.flatten()
+                    res = aux
+                elif len(res) > n_pts:
+                    res = res[:n_pts]
+
+            elif file == 'drift_max':
+                res = np.max(np.abs(res[:, 1]))
             elif file == 'drift_env' or file == 'acc_env':
                 res = res[2]
 
@@ -545,6 +609,182 @@ def get_story_response(results_folder, beam_list, filenames):
         story_response[file] = response
 
     return story_response
+
+
+def get_splice_response(results_folder, splice_list, beam_list, column_list, filenames, res_type='Max', t=0,
+                        def_desired='rot'):
+    # Read response for columns, currently takes the maximum of the time history
+    #
+    # INPUTS
+    #    results_folder   = path to folder with the results of NLRHA
+    #    splice_list      = 2D np.array with 1 or 0 for the beams that exist
+    #    beam_list        = 2D np.array with 1 or 0 for the beams that exist
+    #    column_list      = 2D np.array with 1 or 0 for the columns that exist
+    #    filenames        = list with any group of the following alternatives
+    #                       'ss_splice'
+    #    res_type         = 'Max' : return the maximum response in the time history
+    #                       'at_t': return the response at the given time t
+    #                       'all_t': return the response history
+    #    t                = index for deformed shape plot
+    #   def_desired       = 'axial'
+    #                       'shear'
+    #                       'rot'
+    #                       'strain'
+    #                       'stress'
+    #                       Only applies for hinge_left/right and def_left/right
+    #
+    # OUTPUTS
+    #    column_results   = dictionary with all results for the columns, one key for each filename
+    #
+
+    column_results = dict(keys=filenames)
+
+    n_stories, n_pier = column_list.shape
+    # splice_list = np.zeros([n_stories, n_pier])
+    # splice_list[n_stories_splice-1 : n_stories:n_stories_splice] = np.ones([n_pier])
+    num_splices = np.sum(splice_list)
+
+    # Read results as 1d array
+    for file in filenames:
+        filepath = posixpath.join(results_folder, file + '.out')
+
+        data_1d = np.loadtxt(filepath)
+        _, n_cols = data_1d.shape
+
+        if n_cols == int(2 * num_splices):
+            # read stress and strain for a unique section
+            stress = data_1d[:, 0:n_cols:2]
+            strain = data_1d[:, 1:n_cols:2]
+
+            if def_desired == 'stress':
+                res = stress
+            elif def_desired == 'strain':
+                res = strain
+            else:
+                print('ERROR: specify either "stress" or "strain" output')
+
+            if res_type == 'Max':
+                # read maximum response for each hinge
+                results_1d = np.max(abs(res), axis=0)
+            elif res_type == 'at_t':
+                # read response at index t for each hinge
+                aux = abs(res)
+                results_1d = aux[t]
+            else:
+                # read response history
+                results_1d = res
+
+        elif n_cols == int(10 * num_splices):
+            # read stress and strain for a unique section from results on all (5) section of the forceBasedElement
+            stress = data_1d[:, 4:n_cols:10]
+            strain = data_1d[:, 5:n_cols:10]
+
+            if def_desired == 'stress':
+                res = stress
+            elif def_desired == 'strain':
+                res = strain
+            else:
+                print('ERROR: specify either "stress" or "strain" output')
+
+            if res_type == 'Max':
+                # read maximum response for each hinge
+                results_1d = np.max(abs(res), axis=0)
+            elif res_type == 'at_t':
+                # read response at index t for each hinge
+                aux = abs(res)
+                results_1d = aux[t]
+            else:
+                # read response history
+                results_1d = res
+
+        elif n_cols == int(3 * num_splices):
+            # read axial def, shear def, rotation for each hinge
+            axial_def = data_1d[:, 0:n_cols:3]
+            shear_def = data_1d[:, 1:n_cols:3]
+            rot = data_1d[:, 2:n_cols:3]
+
+            if def_desired == 'axial':
+                res = axial_def
+            elif def_desired == 'shear':
+                res = shear_def
+            else:
+                res = rot
+
+            if res_type == 'Max':
+                # read maximum response for each hinge
+                results_1d = np.max(abs(res), axis=0)
+            elif res_type == 'at_t':
+                # read response at index t for each hinge
+                aux = abs(res)
+                results_1d = aux[t]
+            else:
+                # read response history
+                results_1d = res
+
+        elif n_cols == int(6 * num_splices):
+            # read moment for each hinge
+            M_bot = data_1d[:, 2:n_cols:6]
+            M_top = data_1d[:, 5:n_cols:6]
+
+            if res_type == 'Max':
+                # read maximum response for each hinge
+                if 'bot' in file:
+                    results_1d = np.max(abs(M_bot), axis=0)
+                elif 'top' in file:
+                    results_1d = np.max(abs(M_top), axis=0)
+            elif res_type == 'at_t':
+                # read response at index t for each hinge
+                if 'bot' in file:
+                    aux = abs(M_bot)
+                elif 'top' in file:
+                    aux = abs(M_top)
+                results_1d = aux[t]
+            else:
+                # read response history
+                if 'bot' in file:
+                    aux = M_bot
+                elif 'top' in file:
+                    aux = M_top
+
+        elif n_cols == num_splices:
+            if res_type == 'Max' or 'env' in file:
+                # read the maximum response value in entire time history
+                results_1d = np.max(abs(data_1d), axis=0)
+            elif res_type == 'at_t':
+                # read response at index t for each hinge
+                aux = abs(data_1d)
+                results_1d = aux[t]
+            else:
+                # read response history
+                results_1d = data_1d
+        else:
+            print('ERROR: output not consistent with number of columns')
+            print(file)
+            print('n_cols = ' + str(n_cols) + '; num_splices = ' + str(num_splices))
+
+        # Initialize final matrix to return the results
+        if res_type == 'all_t':
+            n_pts, _ = results_1d.shape
+            column_results[file] = np.zeros([n_stories, n_pier, n_pts])
+        else:
+            column_results[file] = np.zeros([n_stories, n_pier])
+
+        # Save in desired format
+        i_element = 0
+        for i_pier in range(n_pier):
+            for i_story in range(n_stories):
+                if column_list[i_story, i_pier] > 0:  # jump if setbacks
+                    if i_story == 0 or beam_list[
+                        i_story - 1, min(i_pier, n_pier - 2)]:  # jump columns already created in atriums
+                        if splice_list[i_story, i_pier] > 0:  # jump if no splice in this story
+                            if res_type == 'all_t':
+                                column_results[file][i_story, i_pier, :] = results_1d[:, i_element]
+                            else:
+                                column_results[file][i_story, i_pier] = results_1d[i_element]
+
+                            i_element += 1
+
+    return column_results
 
 
 def plot_fractures(ax, joints_x, joints_y, frac_results, marker_size=50, add_legend=False, one_fracture_color='m',
@@ -642,20 +882,34 @@ def plot_fractures_edp(ax, t, edp, joints_x, joints_y, frac_results, plot_scale=
     if edp.ndim == 3:
         ### For disp on each column axis ###
 
-        # Add disp to the ground nodes
-        [_, n_piers, n_pts] = edp.shape
-        edp = np.insert(edp, 0, np.zeros((n_piers, n_pts)), axis=0)
+        # Add disp to the ground nodes (if not already in edp matrix)
+        [n_disps, n_piers, n_pts] = edp.shape
+        if n_disps < n_stories + 1:
+            edp = np.insert(edp, 0, np.zeros((n_piers, n_pts)), axis=0)
 
         # Add displacement to each joint index
         joints_x_t = joints_x.copy()
         joints_x_t = joints_x_t + plot_scale * edp[:, :, t]
 
+    elif edp.ndim == 2:
+        ### For disp on each column axis ###
+
+        # Add disp to the ground nodes (if not already in edp matrix)
+        [n_disps, n_piers] = edp.shape
+        if n_disps < n_stories + 1:
+            edp = np.insert(edp, 0, np.zeros((1, n_piers)), axis=0)
+
+        # Add displacement to each joint index
+        joints_x_t = joints_x.copy()
+        joints_x_t = joints_x_t + plot_scale * edp[:, :]
+
     else:
         ### For one disp input per floor ###
 
         # Add the ground level displacement
-        [_, n_pts] = edp.shape
-        edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
+        [n_disps, n_pts] = edp.shape
+        if n_disps < n_stories + 1:
+            edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
 
         # Add displacement to each joint index
         joints_x_t = joints_x.copy()
@@ -944,20 +1198,34 @@ def plot_beam_response_bins_edp(ax, t, edp, joints_x, joints_y, respose_left, re
     if edp.ndim == 3:
     ### For disp on each column axis ###
 
-        # Add disp to the ground nodes
-        [_, n_piers, n_pts] = edp.shape
-        edp = np.insert(edp, 0, np.zeros((n_piers, n_pts)), axis=0)
+        # Add disp to the ground nodes (if not already in edp matrix)
+        [n_disps, n_piers, n_pts] = edp.shape
+        if n_disps < n_stories + 1:
+            edp = np.insert(edp, 0, np.zeros((n_piers, n_pts)), axis=0)
 
         # Add displacement to each joint index
         joints_x_t = joints_x.copy()
         joints_x_t = joints_x_t + plot_scale * edp[:, :, t]
 
+    elif edp.ndim == 2:
+    ### For disp on each column axis ###
+
+        # Add disp to the ground nodes (if not already in edp matrix)
+        [n_disps, n_piers] = edp.shape
+        if n_disps < n_stories + 1:
+            edp = np.insert(edp, 0, np.zeros((1, n_piers)), axis=0)
+
+        # Add displacement to each joint index
+        joints_x_t = joints_x.copy()
+        joints_x_t = joints_x_t + plot_scale * edp[:, :]
+
     else:
     ### For one disp input per floor ###
 
         # Add the ground level displacement
-        [_, n_pts] = edp.shape
-        edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
+        [n_disps, n_pts] = edp.shape
+        if n_disps < n_stories + 1:
+            edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
 
         # Add displacement to each joint index
         joints_x_t = joints_x.copy()
@@ -1147,20 +1415,33 @@ def plot_column_response_bins_edp(ax, t, edp, joints_x, joints_y, respose_bot, r
 
     if edp.ndim == 3:
         ### For disp on each column axis ###
-        # Add disp to the ground nodes
-        [_, n_piers, n_pts] = edp.shape
-        edp = np.insert(edp, 0, np.zeros((n_piers, n_pts)), axis=0)
+        # Add disp to the ground nodes (if not already in edp matrix)
+        [n_disps, n_piers, n_pts] = edp.shape
+        if n_disps < n_stories + 1:
+            edp = np.insert(edp, 0, np.zeros((n_piers, n_pts)), axis=0)
 
         # Add displacement to each joint index
         joints_x_t = joints_x.copy()
         joints_x_t = joints_x_t + plot_scale * edp[:, :, t]
 
+    elif edp.ndim == 2:
+        ### For disp on each column axis ###
+        # Add disp to the ground nodes (if not already in edp matrix)
+        [n_disps, n_piers] = edp.shape
+        if n_disps < n_stories + 1:
+            edp = np.insert(edp, 0, np.zeros((1, n_piers)), axis=0)
+
+        # Add displacement to each joint index
+        joints_x_t = joints_x.copy()
+        joints_x_t = joints_x_t + plot_scale * edp[:, :]
+
     else:
         ### For one disp input per floor ###
 
         # Add the ground level displacement
-        [_, n_pts] = edp.shape
-        edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
+        [n_disps, n_pts] = edp.shape
+        if n_disps < n_stories + 1:
+            edp = np.insert(edp, 0, np.zeros((1, n_pts)), axis=0)
 
         # Add displacement to each joint index
         joints_x_t = joints_x.copy()
@@ -1586,7 +1867,8 @@ def msa_log_likelihood(parameters, stripe_values, p_stripes):
     return log_likelihood
 
 
-def plot_response_in_height(EDP, edp2plot, title_text, edp_limits, ax):
+def plot_response_in_height(EDP, edp2plot, title_text, edp_limits, ax, add_stats=True, color_record='lightgrey',
+                            color_stats='tab:blue'):
     # plot_response_in_height plots the story edp's for a building along the height
     #
     # INPUTS
@@ -1620,19 +1902,23 @@ def plot_response_in_height(EDP, edp2plot, title_text, edp_limits, ax):
         edp_label = ''
 
     for i in range(len(edp2plot)):
-        _ = ax.step(edp2plot[i], story_list, color='lightgrey', linewidth=1)
-    _ = ax.step(np.exp(median), story_list, color='tab:blue', linewidth=2)
-    _ = ax.step(np.exp(median + std_dev), story_list, color='tab:blue', linestyle='dashed', linewidth=1.5)
-    _ = ax.step(np.exp(median - std_dev), story_list, color='tab:blue', linestyle='dashed', linewidth=1.5)
-    _ = ax.grid(which='both', alpha=0.3)
+        _ = ax.step(edp2plot[i], story_list, color=color_record, alpha=0.2, linewidth=1)
+
+    if add_stats:
+        _ = ax.step(np.exp(median), story_list, color=color_stats, alpha=1, linewidth=2)
+        _ = ax.step(np.exp(median + std_dev), story_list, color=color_stats, alpha=1, linestyle='dashed', linewidth=1.5)
+        _ = ax.step(np.exp(median - std_dev), story_list, color=color_stats, alpha=1, linestyle='dashed', linewidth=1.5)
+
     if edp_limits != 999:
         _ = ax.set_xlim(edp_limits)
-    _ = ax.set_ylim([1, n_stories])
+
+    _ = ax.grid(which='both', alpha=0.3)
+    _ = ax.set_ylim([0.5, n_stories+0.5])
     _ = ax.set_xlabel(edp_label)
     _ = ax.set_ylabel('Story #')
     _ = ax.set_title(title_text, loc='right')
     # _ = plt.legend(loc='best', bbox_to_anchor=(1, 0, 0.45, 0.5))
-    _ = plt.tight_layout()
+    # _ = plt.tight_layout()
 
 def risk_convolution(im_exceedance_frequency, im_list, fragilities):
     # plot_response_in_height plots the story edp's for a building along the height
