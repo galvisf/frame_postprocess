@@ -48,9 +48,10 @@ def plot_building_at_t(t, edp, columns, beams, plot_scale, column_list, beam_lis
             for i_story in range(n_stories):
                 for i_bay in range(n_bays):
                     if beam_list[i_story, i_bay] == 1:
-                        beams_t[i_beam, i_end, 0] = beams[i_beam, i_end, 0] + \
-                                                    plot_scale * edp[i_story + 1, i_bay + i_end, t]
-                        i_beam += 1
+                        if beam_list[i_story, i_bay] == 1:
+                            beams_t[i_beam, i_end, 0] = beams[i_beam, i_end, 0] + \
+                                                        plot_scale * edp[i_story + 1, i_bay + i_end, t]
+                            i_beam += 1
 
     elif edp.ndim == 2:
         ### For disp on each column axis and no time response ###
@@ -99,9 +100,7 @@ def plot_building_at_t(t, edp, columns, beams, plot_scale, column_list, beam_lis
                                                                                      plot_scale * edp[i_story + i_end, t]
             i_col = int(i_col + columns_story[i_story])
 
-            beams_t[i_beam:int(i_beam + beams_floor[i_story] + 1), :, 0] = beams[i_beam:int(
-                i_beam + beams_floor[i_story] + 1), :,
-                                                                           0] + \
+            beams_t[i_beam:int(i_beam + beams_floor[i_story] + 1), :, 0] = beams[i_beam:int(i_beam + beams_floor[i_story] + 1), :, 0] + \
                                                                            plot_scale * edp[i_story + 1, t]
             i_beam = int(i_beam + beams_floor[i_story])
 
@@ -167,7 +166,14 @@ def get_coordinates(beam_list, column_list, bay_widths, story_heights):
                 beams[i_element, :, 1] = np.sum(story_heights[:i_story + 1])
                 for i_end in range(2):
                     # x values of beams
-                    beams[i_element, i_end, 0] = np.sum(bay_widths[:i_beam + i_end])
+                    if (beam_list[i_story, min(i_beam+1, n_bays-1)] == 0) and \
+                            (column_list[i_story, min(i_beam+1, n_bays)] == 0) and \
+                            (column_list[min(i_story+1, n_stories-1), min(i_beam+1, n_bays)] == 0) and (i_end == 1):
+                        # for double bay beams
+                        beams[i_element, i_end, 0] = np.sum(bay_widths[:i_beam + i_end + 1])
+                    else:
+                        # for typical single bay beams
+                        beams[i_element, i_end, 0] = np.sum(bay_widths[:i_beam + i_end])
                 i_element = i_element + 1
 
     # store the original geometry of each joint
@@ -175,6 +181,15 @@ def get_coordinates(beam_list, column_list, bay_widths, story_heights):
     joints_y = np.array([np.sum(story_heights[:i_story + 1]) for i_story in range(n_stories)])
     joints_y = np.insert(joints_y, 0, 0, axis=0)  # add the hinge at column base
     [joints_x, joints_y] = np.meshgrid(joints_x, joints_y)
+
+    # Adjust joint_x coordinate if has beams spanning two bays
+    for i_story in range(n_stories):
+        i_floor = i_story + 1
+        for i_beam in range(n_bays):
+            if (beam_list[i_story, min(i_beam+1, n_bays-1)] == 0) and \
+                    (column_list[i_story, min(i_beam+1, n_bays)] == 0) and \
+                    (column_list[min(i_story+1, n_stories-1), min(i_beam+1, n_bays)] == 0) and (i_end == 1):
+                joints_x[i_floor, i_beam + 1] = joints_x[i_floor, i_beam + 2]
 
     return n_stories, n_bays, columns, beams, joints_x, joints_y
 
@@ -1248,7 +1263,7 @@ def plot_beam_response_bins_edp(ax, t, edp, joints_x, joints_y, respose_left, re
                     curr_bin += 1
             # Plot circle
             _ = ax.scatter(joints_x_t[story_i + 1, col_i] + d_x, joints_y[story_i + 1, col_i],
-                           s=marker_size_bin[curr_bin - 1], facecolors=facecolors, color=edgecolor, alpha=0.9)
+                           s=marker_size_bin[curr_bin - 1], facecolors=facecolors, color=edgecolor, alpha=0.5)
 
     # Review right side of all beams
     d_x = -d_x
@@ -1573,7 +1588,8 @@ def di_fema352_deterministic(beam_list, column_list, frac_simulated, webfiber_st
                              beam_plas_rot, beam_thetaCap, column_response, col_thetaCap_hinge_bot, col_thetaCap_hinge_top,
                              col_thetaUlt_hinge_bot, col_thetaUlt_hinge_top, pz_response, pz_gammay):
     # di_fema352 takes all the information of the response and capacity of every beam-to-column connection (fracture,
-    # beam rotation, column rotation, and panel zone rotation) and computes the FEMA 352 damage index per floor.
+    # beam rotation, column rotation, and panel zone rotation) and computes the FEMA 352 damage index per connection
+    # and floor.
     #
     # INPUTS
     #   beam_list              = np.array of No.Floors x No.bays with 1 in the bays that do have a beam
@@ -1674,58 +1690,58 @@ def di_fema352_deterministic(beam_list, column_list, frac_simulated, webfiber_st
 
         #     d_type2
 
-        ###################### G1 and G8 damages ######################
-        d_type3 = np.zeros([n_floors, n_bays * 2])  # columns are bay 1 left- bay 1 right - bay 2 left - bay 2 right
+    ###################### G1 and G8 damages ######################
+    d_type3 = np.zeros([n_floors, n_bays * 2])  # columns are bay 1 left- bay 1 right - bay 2 left - bay 2 right
 
-        temp_left = np.divide(beam_plas_rot['hinge_left'], beam_thetaCap)
-        temp_left[np.isnan(temp_left)] = 0
-        temp_left[temp_left > 1] = 2
-        temp_left[temp_left < 1] = 0
+    temp_left = np.divide(beam_plas_rot['hinge_left'], beam_thetaCap)
+    temp_left[np.isnan(temp_left)] = 0
+    temp_left[temp_left > 1] = 2
+    temp_left[temp_left < 1] = 0
 
-        temp_right = np.divide(beam_plas_rot['hinge_right'], beam_thetaCap)
-        temp_right[np.isnan(temp_right)] = 0
-        temp_right[temp_left > 1] = 2
-        temp_right[temp_left < 1] = 0
+    temp_right = np.divide(beam_plas_rot['hinge_right'], beam_thetaCap)
+    temp_right[np.isnan(temp_right)] = 0
+    temp_right[temp_left > 1] = 2
+    temp_right[temp_left < 1] = 0
 
-        d_type3[:, 0:n_bays * 2:2] = temp_left
-        d_type3[:, 1:n_bays * 2:2] = temp_right
+    d_type3[:, 0:n_bays * 2:2] = temp_left
+    d_type3[:, 1:n_bays * 2:2] = temp_right
 
         #     d_type3
 
-        ###################### C1, C5 and C6 damages ######################
-        d_type4 = np.zeros([n_floors, n_bays * 2])  # columns are bay 1 left- bay 1 right - bay 2 left - bay 2 right
+    ###################### C1, C5 and C6 damages ######################
+    d_type4 = np.zeros([n_floors, n_bays * 2])  # columns are bay 1 left- bay 1 right - bay 2 left - bay 2 right
 
-        #### damage of the bottom hinge of the column above
-        temp_bot = np.divide(column_response['hinge_bot'], col_thetaCap_hinge_bot)
-        temp_bot[np.isnan(temp_bot)] = 0
-        temp_bot[temp_bot < 0.5] = 0
-        temp_bot[np.logical_and(temp_bot > 0.5, temp_bot < 1)] = 1
-        temp_bot[temp_bot > 1] = 2
+    #### damage of the bottom hinge of the column above
+    temp_bot = np.divide(column_response['hinge_bot'], col_thetaCap_hinge_bot)
+    temp_bot[np.isnan(temp_bot)] = 0
+    temp_bot[temp_bot < 0.5] = 0
+    temp_bot[np.logical_and(temp_bot > 0.5, temp_bot < 1)] = 1
+    temp_bot[temp_bot > 1] = 2
 
-        temp_bot_2 = np.divide(column_response['hinge_bot'], col_thetaUlt_hinge_bot)
-        temp_bot_2[np.isnan(temp_bot_2)] = 0
-        temp_bot_2[temp_bot_2 > 1] = 3
-        temp_bot_2[temp_bot_2 < 1] = 0
+    temp_bot_2 = np.divide(column_response['hinge_bot'], col_thetaUlt_hinge_bot)
+    temp_bot_2[np.isnan(temp_bot_2)] = 0
+    temp_bot_2[temp_bot_2 > 1] = 3
+    temp_bot_2[temp_bot_2 < 1] = 0
 
-        temp_bot = temp_bot + temp_bot_2
-        temp_bot[temp_bot >= 3] = 3
+    temp_bot = temp_bot + temp_bot_2
+    temp_bot[temp_bot >= 3] = 3
 
-        n_pier = n_bays + 1
-        for i_story in np.arange(1, n_floors):  # starts from 1 not 0
-            i_floor = i_story - 1
-            for i_pier in range(n_pier):
-                if column_list[i_story, i_pier] > 0:  # jump if setbacks
-                    if beam_list[i_floor, min(i_pier, n_pier - 2)]:  # continue if one beam at one side
-                        # exterior column
-                        if i_pier == 0 or beam_list[i_floor, min(max(0, i_pier - 1),
-                                                                 n_pier - 2)] == 0:  # np.logical_and(i_pier >= 1, column_list[i_story, i_pier-1] == 0):
-                            d_type4[i_floor, 2 * i_pier] = temp_bot[i_story, i_pier]
-                        elif i_pier == n_pier - 1:
-                            d_type4[i_floor, -1] = temp_bot[i_story, i_pier]
-                        else:
-                            # Interior columns
-                            d_type4[i_floor, 2 * i_pier] = temp_bot[i_story, i_pier]
-                            d_type4[i_floor, 2 * i_pier - 1] = temp_bot[i_story, i_pier]
+    n_pier = n_bays + 1
+    for i_story in np.arange(1, n_floors):  # starts from 1 not 0
+        i_floor = i_story - 1
+        for i_pier in range(n_pier):
+            if column_list[i_story, i_pier] > 0:  # jump if setbacks
+                if beam_list[i_floor, min(i_pier, n_pier - 2)]:  # continue if one beam at one side
+                    # exterior column
+                    if i_pier == 0 or beam_list[i_floor, min(max(0, i_pier - 1),
+                                                             n_pier - 2)] == 0:  # np.logical_and(i_pier >= 1, column_list[i_story, i_pier-1] == 0):
+                        d_type4[i_floor, 2 * i_pier] = temp_bot[i_story, i_pier]
+                    elif i_pier == n_pier - 1:
+                        d_type4[i_floor, -1] = temp_bot[i_story, i_pier]
+                    else:
+                        # Interior columns
+                        d_type4[i_floor, 2 * i_pier] = temp_bot[i_story, i_pier]
+                        d_type4[i_floor, 2 * i_pier - 1] = temp_bot[i_story, i_pier]
 
     #### damage of the top hinge of the column below
     temp_top = np.divide(column_response['hinge_top'], col_thetaCap_hinge_top)
@@ -1759,7 +1775,7 @@ def di_fema352_deterministic(beam_list, column_list, frac_simulated, webfiber_st
                         d_type4[i_floor, 2 * i_pier] = temp_top[i_story, i_pier]
                         d_type4[i_floor, 2 * i_pier - 1] = temp_top[i_story, i_pier]
 
-    # d_type4
+            # d_type4
 
     ###################### P6 to P8 damages ######################
     d_type5 = np.zeros([n_floors, n_bays * 2])  # columns are bay 1 left- bay 1 right - bay 2 left - bay 2 right
