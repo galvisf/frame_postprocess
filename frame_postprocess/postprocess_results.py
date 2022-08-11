@@ -528,8 +528,8 @@ def get_column_response(results_folder, beam_list, column_list, filenames, res_t
 
         # Save in desired format
         i_element = 0
-        for i_story in range(n_stories):
-            for i_pier in range(n_pier):
+        for i_pier in range(n_pier):
+            for i_story in range(n_stories):
                 if column_list[i_story, i_pier] > 0:  # jump if setbacks
                     if i_story == 0 or beam_list[i_story - 1, min(i_pier, n_pier - 2)]:  # jump columns already created in atriums
                         if res_type == 'all_t':
@@ -1263,7 +1263,7 @@ def plot_beam_response_bins_edp(ax, t, edp, joints_x, joints_y, respose_left, re
                     curr_bin += 1
             # Plot circle
             _ = ax.scatter(joints_x_t[story_i + 1, col_i] + d_x, joints_y[story_i + 1, col_i],
-                           s=marker_size_bin[curr_bin - 1], facecolors=facecolors, color=edgecolor, alpha=0.5)
+                           s=marker_size_bin[curr_bin - 1], facecolors=facecolors, color=edgecolor, alpha=0.9)
 
     # Review right side of all beams
     d_x = -d_x
@@ -1918,7 +1918,7 @@ def plot_response_in_height(EDP, edp2plot, title_text, edp_limits, ax, add_stats
         edp_label = ''
 
     for i in range(len(edp2plot)):
-        _ = ax.step(edp2plot[i], story_list, color=color_record, alpha=0.2, linewidth=1)
+        _ = ax.step(edp2plot[i], story_list, color=color_record, alpha=0.5, linewidth=1)
 
     if add_stats:
         _ = ax.step(np.exp(median), story_list, color=color_stats, alpha=1, linewidth=2)
@@ -1936,7 +1936,7 @@ def plot_response_in_height(EDP, edp2plot, title_text, edp_limits, ax, add_stats
     # _ = plt.legend(loc='best', bbox_to_anchor=(1, 0, 0.45, 0.5))
     # _ = plt.tight_layout()
 
-def risk_convolution(im_exceedance_frequency, im_list, fragilities):
+def risk_convolution_old(im_exceedance_frequency, im_list, fragilities):
     # plot_response_in_height plots the story edp's for a building along the height
     #
     # INPUTS
@@ -1966,3 +1966,178 @@ def risk_convolution(im_exceedance_frequency, im_list, fragilities):
         freq_collapse[i] = np.trapz(y, dx=dim)
 
     return freq_collapse
+
+
+def risk_convolution_poly(im_exceedance_frequency, im_list, fragilities, deg=4):
+    # plot_response_in_height plots the story edp's for a building along the height
+    #
+    # INPUTS
+    #   im_exceedance_frequency = mean annual freq. of exceedence of each IM in im_list for the hazard curve
+    #   im_list                 = 1D array or list with the IM values for the hazard curve
+    #   fragilities             = dictionary with 'Median' and 'Beta' lists for the buildings to
+    #                             compute collapse risk
+    #   deg                     = degree of the polynomial function to fit the hazard curve
+    #
+
+    medians = fragilities['Median']
+    betas = fragilities['Beta']
+
+    # Linear interpolation of the hazard curve in log space
+    #     im   = np.linspace(min(im_list), max(im_list), 500)
+    #     freq = np.exp(np.interp(np.log(im), np.log(im_list), np.log(im_exceedance_frequency)))
+    #     dim  = im[1] - im[0]
+    #     slope = np.abs(np.diff(freq)/dim)
+    #     slope = np.hstack([slope, slope[-1]])
+
+    # Polyfit interpolation of the hazard curve
+    im = np.linspace(min(im_list), max(im_list), 500)
+    freq = np.exp(np.interp(np.log(im), np.log(im_list), np.log(im_exceedance_frequency)))
+    dim = im[1] - im[0]
+    deg = 3  # degree of the polinomial fit
+    p = np.polyfit(np.log(im), np.log(freq), deg)
+    slope = []
+    for i in range(len(im)):
+        if deg == 3:
+            slope.append(((p[2] + 2 * p[1] * np.log(im[i]) + 3 * p[0] * np.log(im[i]) ** 2) / im[i]) * np.exp(
+                p[3] + p[2] * np.log(im[i]) + p[1] * np.log(im[i]) ** 2 + p[0] * np.log(im[i]) ** 3))
+        elif deg == 4:
+            slope.append(((p[3] + 2 * p[2] * np.log(im[i]) + 3 * p[1] * np.log(im[i]) ** 2 + 4 * p[0] * np.log(
+                im[i]) ** 3) / im[i]) * np.exp(
+                p[4] + p[3] * np.log(im[i]) + p[2] * np.log(im[i]) ** 2 + p[1] * np.log(im[i]) ** 3 + p[0] * np.log(
+                    im[i]) ** 4))
+        else:
+            print('deg must be 3 or 4')
+    slope = np.abs(slope)
+
+    # Identify fragility format
+    if type(medians) is not list:
+        medians = [medians]
+        betas = [betas]
+
+    # Integrate over the hazard curve
+    freq_collapse = np.zeros(len(medians))
+    for median, beta, i in zip(medians, betas, range(len(medians))):
+        p_collapse_im = stats.lognorm(beta, scale=median).cdf(im)
+        deagg = p_collapse_im * slope
+        freq_collapse[i] = np.trapz(deagg, x=im)
+
+    return freq_collapse
+
+
+def EAL_poly(im_exceedance_frequency, im_list, im_loss, loss_given_im, rp_no_loss=25, deg=4):
+    # plot_response_in_height plots the story edp's for a building along the height
+    #
+    # INPUTS
+    #   im_exceedance_frequency = mean annual freq. of exceedence of each IM in im_list for the hazard curve
+    #   im_list                 = 1D array or list with the IM values for the hazard curve
+    #   im_loss                 = 1D array or list with the IM values corresponding to the loss estimates
+    #   loss_given_im           = 1D array or list with the loss estimates
+    #   rp_no_loss              = return period for no loss
+    #   deg                     = degree of the polynomial function to fit the hazard curve
+    #
+
+    # Linear interpolation of the hazard curve in log space
+    #     im   = np.linspace(min(im_list), max(im_list), 500)
+    #     freq = np.exp(np.interp(np.log(im), np.log(im_list), np.log(im_exceedance_frequency)))
+    #     dim  = im[1] - im[0]
+    #     slope = np.abs(np.diff(freq)/dim)
+    #     slope = np.hstack([slope, slope[-1]])
+
+    # Polyfit interpolation of the hazard curve
+    im = np.linspace(min(im_list), max(im_list), 500)
+    freq = np.exp(np.interp(np.log(im), np.log(im_list), np.log(im_exceedance_frequency)))
+    dim = im[1] - im[0]
+    deg = 3  # degree of the polinomial fit
+    p = np.polyfit(np.log(im), np.log(freq), deg)
+    slope = []
+    for i in range(len(im)):
+        if deg == 3:
+            slope.append(((p[2] + 2 * p[1] * np.log(im[i]) + 3 * p[0] * np.log(im[i]) ** 2) / im[i]) * np.exp(
+                p[3] + p[2] * np.log(im[i]) + p[1] * np.log(im[i]) ** 2 + p[0] * np.log(im[i]) ** 3))
+        elif deg == 4:
+            slope.append(((p[3] + 2 * p[2] * np.log(im[i]) + 3 * p[1] * np.log(im[i]) ** 2 + 4 * p[0] * np.log(
+                im[i]) ** 3) / im[i]) * np.exp(
+                p[4] + p[3] * np.log(im[i]) + p[2] * np.log(im[i]) ** 2 + p[1] * np.log(im[i]) ** 3 + p[0] * np.log(
+                    im[i]) ** 4))
+        else:
+            print('deg must be 3 or 4')
+    slope = np.abs(slope)
+
+    # IM no loss
+    im_no_loss = np.exp(np.interp(np.log(1/rp_no_loss), np.log(im_exceedance_frequency), np.log(im_list)))
+    if np.min(im_loss) >= im_no_loss:
+        im_loss = np.hstack([0, im_no_loss, im_loss])
+        loss_given_im = np.hstack([0, 0, loss_given_im])
+    else:
+        im_loss = np.hstack([0, im_loss])
+        loss_given_im = np.hstack([0, loss_given_im])
+        for i in range(len(im_loss)):
+            if im_loss[i] < im_no_loss:
+                loss_given_im[i] = 0
+
+    # Integrate over the hazard curve
+    loss = np.interp(im, im_loss, loss_given_im)
+    deagg = loss * slope
+    EAL = np.trapz(deagg, dx=dim)
+
+    return EAL, deagg, im
+
+
+def EAL_poly(im_exceedance_frequency, im_list, im_loss, loss_given_im, rp_no_loss=25, deg=4):
+    # plot_response_in_height plots the story edp's for a building along the height
+    #
+    # INPUTS
+    #   im_exceedance_frequency = mean annual freq. of exceedence of each IM in im_list for the hazard curve
+    #   im_list                 = 1D array or list with the IM values for the hazard curve
+    #   im_loss                 = 1D array or list with the IM values corresponding to the loss estimates
+    #   loss_given_im           = 1D array or list with the loss estimates
+    #   rp_no_loss              = return period for no loss
+    #   deg                     = degree of the polynomial function to fit the hazard curve
+    #
+
+    # Linear interpolation of the hazard curve in log space
+    #     im   = np.linspace(min(im_list), max(im_list), 500)
+    #     freq = np.exp(np.interp(np.log(im), np.log(im_list), np.log(im_exceedance_frequency)))
+    #     dim  = im[1] - im[0]
+    #     slope = np.abs(np.diff(freq)/dim)
+    #     slope = np.hstack([slope, slope[-1]])
+
+    # Polyfit interpolation of the hazard curve
+    im = np.linspace(min(im_list), max(im_list), 500)
+    freq = np.exp(np.interp(np.log(im), np.log(im_list), np.log(im_exceedance_frequency)))
+    dim = im[1] - im[0]
+    deg = 3  # degree of the polinomial fit
+    p = np.polyfit(np.log(im), np.log(freq), deg)
+    slope = []
+    for i in range(len(im)):
+        if deg == 3:
+            slope.append(((p[2] + 2 * p[1] * np.log(im[i]) + 3 * p[0] * np.log(im[i]) ** 2) / im[i]) * np.exp(
+                p[3] + p[2] * np.log(im[i]) + p[1] * np.log(im[i]) ** 2 + p[0] * np.log(im[i]) ** 3))
+        elif deg == 4:
+            slope.append(((p[3] + 2 * p[2] * np.log(im[i]) + 3 * p[1] * np.log(im[i]) ** 2 + 4 * p[0] * np.log(
+                im[i]) ** 3) / im[i]) * np.exp(
+                p[4] + p[3] * np.log(im[i]) + p[2] * np.log(im[i]) ** 2 + p[1] * np.log(im[i]) ** 3 + p[0] * np.log(
+                    im[i]) ** 4))
+        else:
+            print('deg must be 3 or 4')
+    slope = np.abs(slope)
+
+    # IM no loss
+    im_no_loss = np.interp(1 / rp_no_loss, np.flip(im_exceedance_frequency), np.flip(im_list))
+    if np.min(im_loss) >= im_no_loss:
+        im_loss = np.hstack([0, im_no_loss, im_loss])
+        loss_given_im = np.hstack([0, 0, loss_given_im])
+    else:
+        im_loss = np.hstack([0, im_loss])
+        loss_given_im = np.hstack([0, loss_given_im])
+        for i in range(len(im_loss)):
+            if im_loss[i] <= im_no_loss:
+                loss_given_im[i] = 0
+
+    # Integrate over the hazard curve
+    loss = np.interp(im, im_loss, loss_given_im)
+    deagg = loss * slope
+    EAL = np.trapz(deagg, dx=dim)
+
+    return EAL, deagg, im
+
