@@ -523,9 +523,9 @@ def get_column_response(results_folder, beam_list, column_list, filenames, res_t
             else:
                 # read response history
                 if 'bot' in file:
-                    aux = M_bot
+                    results_1d = M_bot
                 elif 'top' in file:
-                    aux = M_top
+                    results_1d = M_top
 
         elif n_cols == num_columns:
             if res_type == 'Max' or 'env' in file:
