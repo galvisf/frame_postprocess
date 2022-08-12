@@ -280,7 +280,31 @@ def get_beam_response(results_folder, beam_list, filenames, res_type='Max', t=0,
         else:
             _, n_cols = data_1d.shape
         
-        if n_cols == 3*num_beams: #file == 'hinge_left' or file == 'hinge_right':
+        if n_cols == 6*num_beams: #file == 'hinge_left' or file == 'hinge_right':
+            # read axial def, shear def, rotation for each hinge
+            axial_def = data_1d[:, 0:n_cols:6]
+            shear_def = data_1d[:, 1:n_cols:6]
+            rot = data_1d[:, 2:n_cols:6]
+
+            if def_desired == 'axial':
+                res = axial_def
+            elif def_desired == 'shear':
+                res = shear_def
+            else:
+                res = rot
+
+            if res_type == 'Max':
+                # read maximum response for each hinge
+                results_1d = np.max(abs(res), axis=0)
+            elif res_type == 'at_t':
+                # read response at index t for each hinge
+                aux = abs(res)
+                results_1d = aux[t]
+            else:
+                # read response history
+                results_1d = res        
+        
+        elif n_cols == 3*num_beams: #file == 'hinge_left' or file == 'hinge_right':
             # read axial def, shear def, rotation for each hinge
             axial_def = data_1d[:, 0:n_cols:3]
             shear_def = data_1d[:, 1:n_cols:3]
@@ -1898,7 +1922,7 @@ def plot_response_in_height(EDP, edp2plot, title_text, edp_limits, ax, add_stats
     # format input
     edp2plot = np.array(edp2plot).astype(float)
     n_records, n_stories = edp2plot.shape
-    story_list = np.linspace(1, n_stories, n_stories)
+    story_list = np.linspace(0, n_stories-1, n_stories)
 
     # Add ground values (repeat those from first story)
     #     edp2plot = np.concatenate((edp2plot[:,0].reshape(1,-1), edp2plot.T)).T
@@ -1909,9 +1933,9 @@ def plot_response_in_height(EDP, edp2plot, title_text, edp_limits, ax, add_stats
 
     # Get x-label
     if EDP == 'PID':
-        edp_label = '$PID_{max}$ [mm/mm]'
+        edp_label = '$PID_{max}$ []'
     elif EDP == 'RID':
-        edp_label = '$RID_{max}$ [mm/mm]'
+        edp_label = '$RID_{max}$ []'
     elif EDP == 'PFA':
         edp_label = '$PFA_{max}$ [g]'
     else:
