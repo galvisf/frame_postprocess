@@ -22,8 +22,8 @@ The package is capable of plotting 2D frames with any of the following configura
 - *Atypical story heights*
   
 The reponse of beam hinges, column hinges, splices, and panel zones can be presented as shown in Figure 1. For welded steel moment frames, the package treats the connection damage index (see SteelFractureDI material in OpenSees) as an engineering demand parameter (EDPs).
-
-<p align="center"> <img src="https://user-images.githubusercontent.com/35354704/219899801-6bf36f40-7689-43e3-b0e7-e3f2a34d85f2.png" align="middle" height=300 /></p>
+  
+<p align="center"> <img src="https://user-images.githubusercontent.com/35354704/219899866-d80ecc72-3eb7-4b64-9a34-9dfc4e8e0312.png" align="middle" height=300 /></p>
 <p align="center"> Figure 1. Example collapse mechanisms plotted with frame_postprocessing functions. 
 
 ### Plotting EDP responses
