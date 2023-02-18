@@ -33,7 +33,9 @@ The EDPs can be easily plotted in height overlaying relevant statistics for coll
 <p align="center"> Figure 2. Example EDP results for the non-collapse NLRHAs of a building in a scenario earthquake analysis. 
 
 <p align="center"> <img src="https://user-images.githubusercontent.com/35354704/219894322-00057ab1-2438-42ad-bb4e-e41d3e5e2acd.png" align="middle" height=300 /></p>
-<p align="center"> Figure 3. Example EDP results for the collapse NLRHAs of a building in a scenario earthquake analysis.    
+<p align="center"> Figure 3. Example EDP results for the collapse NLRHAs of a building in a scenario earthquake analysis.   
+  
+ 
 ### Calculating fragility curver from multi-stripe analysis 
 `frame_postprocess` also includes functions to compute and plot the collapse fragility function of a structure from the results of a multi-stripe analysis (Figure 4).
  
