@@ -44,7 +44,7 @@ The EDPs can be easily plotted in height overlaying relevant statistics for coll
   
 ## How can I get started?
 
-The **Example/1_Raw_NLRHA_results** folder includes raw OpenSees results from a tcl model created by the package galvisf/ModelerWSMFA. These results are collected by the Juyter notebook *Example_frame_postprocess_collect.ipynb* and stored in the folder **2_Collected_NLRHA_results**. Juyter notebook *Example_frame_postprocess_plot.ipynb* generates the figures shown above for the example building.
+The **Example/1_Raw_NLRHA_results** folder includes raw OpenSees results from a tcl model created by the package galvisf/ModelerWSMFA. These results are collected by the Juyter notebook *Example_frame_postprocess_collect.ipynb* and stored in the folder **Example/2_Collected_NLRHA_results**. Juyter notebook *Example_frame_postprocess_plot.ipynb* generates the figures shown above for the example building and store them in **Example/3_Output_figures**.
 More examples can be found on the supplemental material for the publications listed above.
 
 ## Installation  
