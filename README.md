@@ -12,6 +12,10 @@
 - *Galvis, F. A., Deierlein, G. G., Zsarnoczay3, A., and Molina Hutt, C., (2022). Seismic screening method for tall pre-Northridge welded steel moment frames based on the collapse risk of a realistic portfolio. (In preparation).*
 
 ## What can I use it for?
+
+### Plotting frame elevations  
+The package has multiple functions to read and store in the proper format the output files from OpenSees tcl models. These outputs are conveniently stored in .csv files appropiate for the loss assessment package `pelicun` (https://github.com/NHERI-SimCenter/pelicun). Detailed results that include hinge rotations, damage index for welded connections, and panel zone response and stored in a unique HDF file.
+
 ### Plotting frame elevations  
 The package is capable of plotting 2D frames with any of the following configurations:
 
