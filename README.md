@@ -13,7 +13,7 @@
 
 ## What can I use it for?
 
-### Plotting frame elevations  
+### Collect data from OpenSees tcl outputs
 The package has multiple functions to read and store in the proper format the output files from OpenSees tcl models. These outputs are conveniently stored in .csv files appropiate for the loss assessment package `pelicun` (https://github.com/NHERI-SimCenter/pelicun). Detailed results that include hinge rotations, damage index for welded connections, and panel zone response and stored in a unique HDF file.
 
 ### Plotting frame elevations  
