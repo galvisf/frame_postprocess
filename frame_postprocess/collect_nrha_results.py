@@ -861,6 +861,138 @@ def collect_gmset_response(stripe_folder_path, beam_list, fracElement, dir_i, sp
     return response_matrix
 
 
+def collect_endState_singleDir_response(model_name_all, save_results_folder_all, stripe_folders_all, msa_folders_all, beam_list_all,
+                               column_list_all, pz_list_all, splice_all, colSplice_all, case_i):
+    # INPUTS
+    # All the inputs include information per case (different from the EDP collector that breaks each case into independent jobs per stripe
+    #    model_name_all           = list of str with the case name to collect results from
+    #    save_results_folder_all  = list of str with path to save results
+    #    stripe_folders_all       = list of list with the folder name of each stripe
+    #    msa_folders_all          = list eith the path_to_results
+    #    beam_list_all          = list of 2D np.array indicating which beams exist in the X frame
+    #    column_list_all        = list of 2D np.array indicating which columns exist in the X frame
+    #    pz_list_all            = list of 2D np.array indicating which pz exist in the X frame
+    #    splice_all               = list of boolean if splice are considered or ignored
+    #    colSplice_all          = list of 2D np.array indicating which stories have a splice in the X frame
+    #
+
+    # Parse case to execute
+    model_name    = model_name_all[case_i]
+    save_results_folder = save_results_folder_all[case_i]
+    stripe_folders= stripe_folders_all[case_i]
+    msa_folders   = msa_folders_all[case_i]
+    beam_list     = beam_list_all[case_i]
+    column_list   = column_list_all[case_i]
+    pz_list       = pz_list_all[case_i]
+    splice        = splice_all[case_i]
+    if splice == 1:
+        colSplice = colSplice_all[case_i]
+
+    n_stripes = len(stripe_folders)
+    # Collect end state for every gm in every return period for BOTH DIRECTIONS
+
+    print('------- ' + model_name + ' -------')
+
+    # Select frame geometry matrices
+    results_filename = posixpath.join(save_results_folder, model_name + '.h5')
+
+    # # count panel zones
+    n_stories, n_pier = column_list.shape
+    num_pz = 0
+    for i_story in range(n_stories):
+        for i_pier in range(n_pier):
+            if ((column_list[min(i_story + 1, n_stories-1), i_pier] == 1) or
+                    ((column_list[i_story, i_pier] == 1 )) and
+                    (beam_list[i_story, i_pier - 1])):
+                existPZ = True
+            elif ((column_list[min(i_story + 1, n_stories-1), i_pier] == 1) or
+                    ((column_list[i_story, i_pier] == 1 ) and
+                     (beam_list[i_story, min(i_pier, n_pier -2)]))):
+                existPZ = True
+            else:
+                existPZ = False
+
+            if existPZ:
+                num_pz += 1
+    print('num_pz='+str(num_pz))
+
+    # Removes existing file
+    if os.path.isfile(results_filename):
+        os.remove(results_filename)
+        print(results_filename + ' already exists, so deleted it')
+
+    # if True (Collects only data for those building without data)
+    if not os.path.isfile(results_filename):
+
+        # Collect results and store in HDF file
+        with h5py.File(results_filename, 'w') as hf:
+            # prepare data groups per return period
+            for group in stripe_folders:
+                _ = hf.create_group('/' + group)
+
+            # collect bldg response for each gm in each stripe
+            for i in range(n_stripes):
+                stripe_folder_path = posixpath.join(msa_folders, stripe_folders[i])
+
+                print('RP = ' + str(stripe_folders[i]) + 'years')
+                # print(stripe_folder_path)
+
+                gm_ids = os.listdir(stripe_folder_path)
+                for j in range(len(gm_ids)):
+                    # print(gm_ids[j])
+
+                    # collect results for this gm
+                    results_gm = posixpath.join(stripe_folder_path, gm_ids[j])
+
+                    # check if acc results available (gm finished?)
+                    pfa_gm = get_EDPstory_response(results_gm, n_stories, 'acc_env')
+                    if type(pfa_gm) == int:  # did not finish RHA, so skip the ground motion
+                        print('Did not finish GM' + str(gm_ids[j]))
+                    else:
+                        #    Panel zones
+                        pz_response = get_pz_response(results_gm, pz_list, ['all_disp', 'pz_rot'])
+                        #    beams and columns
+                        column_response = get_column_response(results_gm, column_list, ['hinge_bot','hinge_top'])
+                        beam_plas_rot = get_beam_response(results_gm, beam_list, ['hinge_left', 'hinge_right'])
+                        frac_simulated  = get_beam_response(results_gm, beam_list, ['frac_LB','frac_LT','frac_RB','frac_RT'])
+                        #    Splices
+                        if splice == 1:
+                            splice_response = get_splice_response(results_gm, colSplice, column_list, ['ss_splice'],
+                                              res_type='Max', def_desired='strain')
+                            splice_frac = splice_response['ss_splice'] > 2*60/29000
+
+                        # create gm group
+                        rp_group = hf['/' + stripe_folders[i]]
+                        gm_record_group = rp_group.create_group(gm_ids[j])
+
+                        # Save in h5 file's building_group
+                        key = 'all_disp'
+                        _ = gm_record_group.create_dataset(key, data=pz_response[key])
+                        key = 'pz_rot'
+                        _ = gm_record_group.create_dataset(key, data=pz_response[key])
+                        key = 'hinge_bot'
+                        _ = gm_record_group.create_dataset(key, data=column_response[key])
+                        key = 'hinge_top'
+                        _ = gm_record_group.create_dataset(key, data=column_response[key])
+                        key = 'hinge_left'
+                        _ = gm_record_group.create_dataset(key, data=beam_plas_rot[key])
+                        key = 'hinge_right'
+                        _ = gm_record_group.create_dataset(key, data=beam_plas_rot[key])
+                        key = 'frac_LB'
+                        _ = gm_record_group.create_dataset(key, data=frac_simulated[key])
+                        key = 'frac_LT'
+                        _ = gm_record_group.create_dataset(key, data=frac_simulated[key])
+                        key = 'frac_RB'
+                        _ = gm_record_group.create_dataset(key, data=frac_simulated[key])
+                        key = 'frac_RT'
+                        _ = gm_record_group.create_dataset(key, data=frac_simulated[key])
+                        if splice == 1:
+                            key = 'ss_splice'
+                            _ = gm_record_group.create_dataset(key, data=splice_response[key])
+                            key = 'splice_frac'
+                            _ = gm_record_group.create_dataset(key, data=splice_frac)
+
+
 def collect_XandY_response(model_name_all, stripe_folder_all, save_results_folder_all, msa_folders_all, beam_list_x_all,
                            beam_list_y_all, fracElement, spliceElement_all, splice_list_x_all, splice_list_y_all,
                            column_list_x_all,
