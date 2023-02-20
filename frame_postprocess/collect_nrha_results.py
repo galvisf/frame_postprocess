@@ -965,6 +965,62 @@ def collect_XandY_response(model_name_all, stripe_folder_all, save_results_folde
     results.to_csv(results_filename)
 
 
+
+def collect_singleDir_response(model_name_all, stripe_folder_all, save_results_folder_all, msa_folder_all, beam_list_all,
+                           column_list_all, fracElement, splice_all, splice_list_all,
+                           minrdrift, splice_frac_strain, drift_out, rdrift_out, case_i):
+    # INPUTS
+    # Collects the EDP results considering each stripe of each case as an independent job
+    #    model_name_all           = list of str with the case name to collect results from
+    #    stripe_folder_all        = list of str with the foldername of the stripe to collect results from
+    #    save_results_folder_all  = list of str with path to save results
+    #    msa_folder_all          = list of list [path_to_results_X, path_to_results_Y]
+    #    beam_list_x_all          = list of 2D np.array indicating which beams exist in the X frame
+    #    beam_list_Y_all          = list of 2D np.array indicating which beams exist in the Y frame
+    #    fracElement              = true  -> collect connections DS
+    #                               false -> does NOT collect connections DS
+    #
+    #    spliceElement_all        = 1 -> collect splice data
+    #                               0 -> do not collect splice data
+    #    splice_list_x_all        = list of 2D np.array indicating the pier and story with splice in the X frame
+    #    splice_list_y_all        = list of 2D np.array indicating the pier and story with splice in the Y frame
+    #    column_list_x_all        = list of 2D np.array indicating which columns exist in the X frame
+    #    column_list_y_all        = list of 2D np.array indicating which column exist in the X frame
+    #    minrdrift                = minimum residual drift to collect
+    #    splice_frac_strain       = strain limit for deciding fracture occured on splices
+    #    drift_out          = Method to output peak drift
+    #                         -> 'abs' = multiple columns with the peak absolute value for each floor
+    #                         -> 'both' = multiple columns with the peak positive an negative value for each floor
+    #    rdrift_out         = Method to output residual drift
+    #                         -> 'max' = single column with the maximum residual across floors
+    #                         -> 'all_abs' = multiple columns with the residual absolute value for each floor
+    #                         -> 'all' = multiple columns with the residual for each floor with its sign
+    #
+
+    # Parse case to execute
+    model_name = model_name_all[case_i]
+    stripe_folder = stripe_folder_all[case_i]
+    save_results_folder = save_results_folder_all[case_i]
+    msa_folder = msa_folder_all[case_i]
+
+    spliceElement = splice_all[case_i]
+    beam_list = beam_list_all[case_i]
+    column_list = column_list_all[case_i]
+    splice_list = splice_list_all[case_i]
+
+
+    # Define path to save results
+    results_filename = posixpath.join(save_results_folder, 'EDP_' + model_name + '_' + stripe_folder + '.csv')
+
+    #### collect results on singleDir ####
+    stripe_folder_path = posixpath.join(msa_folder, stripe_folder)
+    results = collect_gmset_response(stripe_folder_path, beam_list, fracElement, 1, spliceElement,
+                                     splice_list, column_list, drift_out=drift_out, rdrift_out=rdrift_out, minrdrift=minrdrift,
+                                     splice_frac_strain=splice_frac_strain)
+
+    results.to_csv(results_filename)
+
+
 def collect_single_response(model_name_all, stripe_folder_all, save_results_folder_all, msa_folder_all, beam_list_x_all,
                             beam_list_y_all, fracElement, spliceElement_all, splice_list_x_all, splice_list_y_all,
                             column_list_x_all,
