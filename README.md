@@ -52,7 +52,7 @@ More examples can be found on the supplemental material for the publications lis
 
 ## Installation  
 
-`frame_postprocess` is available at the Python Package Index (PyPI) at the url 'https://pypi.org/project/frame-postprocess/0.1/'. You can simply install it using `pip` as follows:
+`frame_postprocess` is available at the Python Package Index (PyPI) at the url https://pypi.org/project/frame-postprocess/0.1/. You can simply install it using `pip` as follows:
 
 ```
 pip install frame_postprocess
