@@ -11,13 +11,12 @@ setup(name='frame_postprocess',
       packages=find_packages(),
       include_package_data=True,
       platforms='any',
-       install_requires=[
+      install_requires=[
              'numpy',
              'pandas',
              'h5py',
              'matplotlib',
              'scipy',
-             'posixpath',
              'os',
       ],
       classifiers = [
