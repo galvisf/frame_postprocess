@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import scipy.stats as stats
 import scipy.optimize as optimize
 import os
-import posixpath
 from functools import partial
 import scipy as sp
 import matplotlib as mpl

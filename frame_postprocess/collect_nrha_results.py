@@ -23,9 +23,9 @@ def get_story_response(results_folder, beam_list, filenames):
     for file in filenames:
         # Collect results for first story
         if file == 'drift_max':
-            filepath = posixpath.join(results_folder, 'story' + str(1) + '_drift.out')
+            filepath = os.path.join(results_folder, 'story' + str(1) + '_drift.out')
         else:
-            filepath = posixpath.join(results_folder, 'story' + str(1) + '_' + file + '.out')
+            filepath = os.path.join(results_folder, 'story' + str(1) + '_' + file + '.out')
         try:
             response = np.loadtxt(filepath)
         except:
@@ -49,9 +49,9 @@ def get_story_response(results_folder, beam_list, filenames):
         for i_story in range(n_stories - 1):
             i_story = i_story + 1
             if file == 'drift_max':
-                filepath = posixpath.join(results_folder, 'story' + str(i_story + 1) + '_drift.out')
+                filepath = os.path.join(results_folder, 'story' + str(i_story + 1) + '_drift.out')
             else:
-                filepath = posixpath.join(results_folder, 'story' + str(i_story + 1) + '_' + file + '.out')
+                filepath = os.path.join(results_folder, 'story' + str(i_story + 1) + '_' + file + '.out')
             # print(filepath)
 
             try:
@@ -131,7 +131,7 @@ def get_EDPstory_response(results_folder, n_stories, file, minrdrift=5e-4):
         last_line = 0
 
         try:
-            filepath = posixpath.join(results_folder, 'story' + str(0) + '_' + file + '.out')
+            filepath = os.path.join(results_folder, 'story' + str(0) + '_' + file + '.out')
             with open(filepath) as f:
                 for line in f:
                     try:
@@ -167,7 +167,7 @@ def get_EDPstory_response(results_folder, n_stories, file, minrdrift=5e-4):
         last_line = 0
 
         try:
-            filepath = posixpath.join(results_folder, 'story' + str(1) + '_' + file + '.out')
+            filepath = os.path.join(results_folder, 'story' + str(1) + '_' + file + '.out')
             with open(filepath) as f:
                 for line in f:
                     line = line.strip()
@@ -197,7 +197,7 @@ def get_EDPstory_response(results_folder, n_stories, file, minrdrift=5e-4):
     else:
         # Find story with drift.out file available
         for i in range(n_stories):
-            filepath = posixpath.join(results_folder, 'story' + str(i + 1) + '_' + file + '.out')
+            filepath = os.path.join(results_folder, 'story' + str(i + 1) + '_' + file + '.out')
             try:
                 #                 response = pd.read_csv(filepath, header=None, sep=' ')
                 #                 response = response.values
@@ -235,7 +235,7 @@ def get_EDPstory_response(results_folder, n_stories, file, minrdrift=5e-4):
         # Check if results on every story are not consistent
         # (usually when the building collapses in the first step)
         if 'i_story_worked' in locals():
-            filepath = posixpath.join(results_folder, 'story' + str(i_story_worked) + '_' + file + '.out')
+            filepath = os.path.join(results_folder, 'story' + str(i_story_worked) + '_' + file + '.out')
         else:
             print('ERROR COLLECTING DATA FOR:')
             print(results_folder)
@@ -292,7 +292,7 @@ def get_EDPstory_response(results_folder, n_stories, file, minrdrift=5e-4):
     # Reads and append the results of the remaining stories/floors
     if file == 'acc_env':
         for i_floor in range(n_stories):
-            filepath = posixpath.join(results_folder, 'story' + str(i_floor) + '_' + file + '.out')
+            filepath = os.path.join(results_folder, 'story' + str(i_floor) + '_' + file + '.out')
             #             res = np.loadtxt(filepath)
             #             res = pd.read_csv(filepath, header=None, sep=' ')
             #             res = res.values
@@ -330,7 +330,7 @@ def get_EDPstory_response(results_folder, n_stories, file, minrdrift=5e-4):
     else:
         for i_story in range(n_stories - 1):
             i_story = i_story + 1
-            filepath = posixpath.join(results_folder, 'story' + str(i_story + 1) + '_' + file + '.out')
+            filepath = os.path.join(results_folder, 'story' + str(i_story + 1) + '_' + file + '.out')
 
             if file == 'drift':
                 try:
@@ -382,7 +382,7 @@ def get_EDPstory_response(results_folder, n_stories, file, minrdrift=5e-4):
                     print('MISSING: story' + str(
                         i_story + 1) + '_' + file + '.out, TAKING previous story that worked: story' + str(
                         i_story_worked))
-                    filepath = posixpath.join(results_folder, 'story' + str(i_story_worked) + '_' + file + '.out')
+                    filepath = os.path.join(results_folder, 'story' + str(i_story_worked) + '_' + file + '.out')
                     # res = pd.read_csv(filepath, header=None, sep=' ')
                     # res = res.values
                     with open(filepath) as f:
@@ -489,7 +489,7 @@ def get_DSC(results_folder, n_connections):
 
     # Left connection
     file = 'frac_LB'
-    filepath = posixpath.join(results_folder, file + '.out')
+    filepath = os.path.join(results_folder, file + '.out')
     with open(filepath) as f:
         last_line = 0
         prev_line = 0
@@ -514,7 +514,7 @@ def get_DSC(results_folder, n_connections):
         frac_LB = np.abs(aux)
 
     file = 'frac_LT'
-    filepath = posixpath.join(results_folder, file + '.out')
+    filepath = os.path.join(results_folder, file + '.out')
     with open(filepath) as f:
         last_line = 0
         prev_line = 0
@@ -543,7 +543,7 @@ def get_DSC(results_folder, n_connections):
 
     # Right connection
     file = 'frac_RB'
-    filepath = posixpath.join(results_folder, file + '.out')
+    filepath = os.path.join(results_folder, file + '.out')
     with open(filepath) as f:
         last_line = 0
         prev_line = 0
@@ -567,7 +567,7 @@ def get_DSC(results_folder, n_connections):
         aux = [float(x) for x in aux]  # convert to list of floats
         frac_RB = np.abs(aux)
     file = 'frac_RT'
-    filepath = posixpath.join(results_folder, file + '.out')
+    filepath = os.path.join(results_folder, file + '.out')
     with open(filepath) as f:
         last_line = 0
         prev_line = 0
@@ -616,7 +616,7 @@ def get_DSsplice(results_folder, splice_frac_strain, n_splices):
     # Inputs
     file = 'ss_splice'
 
-    filepath = posixpath.join(results_folder, file + '.out')
+    filepath = os.path.join(results_folder, file + '.out')
     with open(filepath) as f:
         max_res = np.zeros(2*n_splices)
         last_line = 0
@@ -735,7 +735,7 @@ def collect_gmset_response(stripe_folder_path, beam_list, fracElement, dir_i, sp
     removeGMlist = []
     for j in range(n_gms):
         # print(gm_ids[j])
-        results_folder = posixpath.join(stripe_folder_path, gm_ids[j])
+        results_folder = os.path.join(stripe_folder_path, gm_ids[j])
         pfa_gm = get_EDPstory_response(results_folder, n_stories, 'acc_env')
         rdrift_gm = get_EDPstory_response(results_folder, n_stories, 'rdrift_' + rdrift_out, minrdrift=minrdrift)
         if drift_out == 'abs':
@@ -779,7 +779,7 @@ def collect_gmset_response(stripe_folder_path, beam_list, fracElement, dir_i, sp
                 # print(np.sum(splice_list))
                 # print(len(dssplice_gm.flatten()))
 
-            filepath = posixpath.join(results_folder, 'MSA.txt')
+            filepath = os.path.join(results_folder, 'MSA.txt')
             try:
                 maxDrift_wcollapse = np.loadtxt(filepath)
             except:
@@ -894,7 +894,7 @@ def collect_endState_singleDir_response(model_name_all, save_results_folder_all,
     print('------- ' + model_name + ' -------')
 
     # Select frame geometry matrices
-    results_filename = posixpath.join(save_results_folder, model_name + '.h5')
+    results_filename = os.path.join(save_results_folder, model_name + '.h5')
 
     # # count panel zones
     n_stories, n_pier = column_list.shape
@@ -932,7 +932,7 @@ def collect_endState_singleDir_response(model_name_all, save_results_folder_all,
 
             # collect bldg response for each gm in each stripe
             for i in range(n_stripes):
-                stripe_folder_path = posixpath.join(msa_folders, stripe_folders[i])
+                stripe_folder_path = os.path.join(msa_folders, stripe_folders[i])
 
                 print('RP = ' + str(stripe_folders[i]) + 'years')
                 # print(stripe_folder_path)
@@ -942,7 +942,7 @@ def collect_endState_singleDir_response(model_name_all, save_results_folder_all,
                     # print(gm_ids[j])
 
                     # collect results for this gm
-                    results_gm = posixpath.join(stripe_folder_path, gm_ids[j])
+                    results_gm = os.path.join(stripe_folder_path, gm_ids[j])
 
                     # check if acc results available (gm finished?)
                     pfa_gm = get_EDPstory_response(results_gm, n_stories, 'acc_env')
@@ -1033,13 +1033,13 @@ def collect_XandY_response(model_name_all, stripe_folder_all, save_results_folde
     splice_list_y = splice_list_y_all[case_i]
 
     # Define path to save results
-    results_filename = posixpath.join(save_results_folder, 'EDP_' + model_name + '_' + stripe_folder + '.csv')
+    results_filename = os.path.join(save_results_folder, 'EDP_' + model_name + '_' + stripe_folder + '.csv')
 
     #### collect results on X ####
     dir_i = 0
     dirCase = 'X'
     # print(stripe_folder + ' ' + dirCase + ': start')
-    stripe_folder_path = posixpath.join(msa_folders[dir_i], stripe_folder)
+    stripe_folder_path = os.path.join(msa_folders[dir_i], stripe_folder)
     # try:
     resultsX = collect_gmset_response(stripe_folder_path, beam_list_x, fracElement, dir_i + 1, spliceElement,
                                       splice_list_x, column_list_x, minrdrift=minrdrift,
@@ -1051,7 +1051,7 @@ def collect_XandY_response(model_name_all, stripe_folder_all, save_results_folde
     dir_i = 1
     dirCase = 'Y'
     # print(stripe_folder + ' ' + dirCase + ': start')
-    stripe_folder_path = posixpath.join(msa_folders[dir_i], stripe_folder)
+    stripe_folder_path = os.path.join(msa_folders[dir_i], stripe_folder)
     # try:
     resultsY = collect_gmset_response(stripe_folder_path, beam_list_y, fracElement, dir_i + 1, spliceElement,
                                       splice_list_y, column_list_y, minrdrift=minrdrift,
@@ -1142,10 +1142,10 @@ def collect_singleDir_response(model_name_all, stripe_folder_all, save_results_f
 
 
     # Define path to save results
-    results_filename = posixpath.join(save_results_folder, 'EDP_' + model_name + '_' + stripe_folder + '.csv')
+    results_filename = os.path.join(save_results_folder, 'EDP_' + model_name + '_' + stripe_folder + '.csv')
 
     #### collect results on singleDir ####
-    stripe_folder_path = posixpath.join(msa_folder, stripe_folder)
+    stripe_folder_path = os.path.join(msa_folder, stripe_folder)
     results = collect_gmset_response(stripe_folder_path, beam_list, fracElement, 1, spliceElement,
                                      splice_list, column_list, drift_out=drift_out, rdrift_out=rdrift_out, minrdrift=minrdrift,
                                      splice_frac_strain=splice_frac_strain)
@@ -1204,10 +1204,10 @@ def collect_single_response(model_name_all, stripe_folder_all, save_results_fold
         splice_list = splice_list_y_all[case_i]
 
     # Define path to save results
-    results_filename = posixpath.join(save_results_folder, 'EDP_' + model_name + '_' + stripe_folder + '.csv')
+    results_filename = os.path.join(save_results_folder, 'EDP_' + model_name + '_' + stripe_folder + '.csv')
 
     #### collect results on singleDir ####
-    stripe_folder_path = posixpath.join(msa_folder, stripe_folder)
+    stripe_folder_path = os.path.join(msa_folder, stripe_folder)
     results = collect_gmset_response(stripe_folder_path, beam_list, fracElement, 1, spliceElement,
                                      splice_list, column_list, drift_out=drift_out, rdrift_out=rdrift_out, minrdrift=minrdrift,
                                      splice_frac_strain=splice_frac_strain)
@@ -1238,7 +1238,7 @@ def get_pz_response_time(results_folder, beam_list, column_list, filenames, res_
 
     # Read results as 1d array
     for file in filenames:
-        filepath = posixpath.join(results_folder, file + '.out')
+        filepath = os.path.join(results_folder, file + '.out')
 
         res = np.loadtxt(filepath)  # read response history
         # Format results
@@ -1302,7 +1302,7 @@ def get_pz_response(results_folder, pz_list, filenames):
 
     # Read results as 1d array
     for file in filenames:
-        filepath = posixpath.join(results_folder, file + '.out')
+        filepath = os.path.join(results_folder, file + '.out')
         # Read requested data (always at end-2 of analysis to take the last full result in case of inconvergence)
         with open(filepath) as f:
             last_line = 0
@@ -1405,7 +1405,7 @@ def get_column_response_time(results_folder, beam_list, column_list, filenames, 
 
     # Read results as 1d array
     for file in filenames:
-        filepath = posixpath.join(results_folder, file + '.out')
+        filepath = os.path.join(results_folder, file + '.out')
 
         data_1d = np.loadtxt(filepath)
         _, n_cols = data_1d.shape
@@ -1523,7 +1523,7 @@ def get_column_response(results_folder, column_list, filenames, def_desired='rot
 
     # Read results as 1d array
     for file in filenames:
-        filepath = posixpath.join(results_folder, file + '.out')
+        filepath = os.path.join(results_folder, file + '.out')
 
         # Read requested data (always at end-2 of analysis)
         with open(filepath) as f:
@@ -1683,7 +1683,7 @@ def get_beam_response_time(results_folder, beam_list, filenames, res_type='Max',
 
     # Read results as 1d array
     for file in filenames:
-        filepath = posixpath.join(results_folder, file + '.out')
+        filepath = os.path.join(results_folder, file + '.out')
 
         data_1d = np.loadtxt(filepath)
         if data_1d.ndim == 1:
@@ -1819,7 +1819,7 @@ def get_beam_response(results_folder, beam_list, filenames, def_desired='rot'):
 
     # Read results as 1d array
     for file in filenames:
-        filepath = posixpath.join(results_folder, file + '.out')
+        filepath = os.path.join(results_folder, file + '.out')
 
         # Read requested data (always at end-2 of analysis)
         with open(filepath) as f:
@@ -1940,7 +1940,7 @@ def get_splice_response_time(results_folder, splice_list, beam_list, column_list
 
     # Read results as 1d array
     for file in filenames:
-        filepath = posixpath.join(results_folder, file + '.out')
+        filepath = os.path.join(results_folder, file + '.out')
 
         data_1d = np.loadtxt(filepath)
         _, n_cols = data_1d.shape
@@ -2115,7 +2115,7 @@ def get_splice_response(results_folder, splice_list, column_list, filenames, res
 
     # Read results as 1d array
     for file in filenames:
-        filepath = posixpath.join(results_folder, file + '.out')
+        filepath = os.path.join(results_folder, file + '.out')
 
         # data_1d = np.loadtxt(filepath)
         # _, n_cols = data_1d.shape
@@ -2307,7 +2307,7 @@ def collect_endState_single_response(model_name_all, save_results_folder_all, st
         pz_list = pz_list_y
         if splice == 1:
             colSplice = colSplice_y
-    results_filename = posixpath.join(save_results_folder, 'end_state_' + model_name + '_dir' + dirCase + '.h5')
+    results_filename = os.path.join(save_results_folder, 'end_state_' + model_name + '_dir' + dirCase + '.h5')
 
     # # count panel zones
     n_stories, n_pier = column_list.shape
@@ -2345,7 +2345,7 @@ def collect_endState_single_response(model_name_all, save_results_folder_all, st
 
             # collect bldg response for each gm in each stripe
             for i in range(n_stripes):
-                stripe_folder_path = posixpath.join(msa_folder, stripe_folders[i])
+                stripe_folder_path = os.path.join(msa_folder, stripe_folders[i])
 
                 print('RP = ' + str(stripe_folders[i]) + 'years')
                 # print(stripe_folder_path)
@@ -2355,7 +2355,7 @@ def collect_endState_single_response(model_name_all, save_results_folder_all, st
                     # print(gm_ids[j])
 
                     # collect results for this gm
-                    results_gm = posixpath.join(stripe_folder_path, gm_ids[j])
+                    results_gm = os.path.join(stripe_folder_path, gm_ids[j])
 
                     # check if acc results available (gm finished?)
                     pfa_gm = get_EDPstory_response(results_gm, n_stories, 'acc_env')
@@ -2499,7 +2499,7 @@ def collect_endStateXandY_response(model_name_all, save_results_folder_all, stri
             pz_list = pz_list_y
             if splice == 1:
                 colSplice = colSplice_y
-        results_filename = posixpath.join(save_results_folder, 'end_state_' + model_name + '_dir'+ dirCases[dir_i] +'.h5')
+        results_filename = os.path.join(save_results_folder, 'end_state_' + model_name + '_dir'+ dirCases[dir_i] +'.h5')
 
         # # count panel zones
         n_stories, n_pier = column_list.shape
@@ -2537,7 +2537,7 @@ def collect_endStateXandY_response(model_name_all, save_results_folder_all, stri
 
                 # collect bldg response for each gm in each stripe
                 for i in range(n_stripes):
-                    stripe_folder_path = posixpath.join(msa_folders[dir_i], stripe_folders[i])
+                    stripe_folder_path = os.path.join(msa_folders[dir_i], stripe_folders[i])
 
                     print('RP = ' + str(stripe_folders[i]) + 'years')
                     # print(stripe_folder_path)
@@ -2547,7 +2547,7 @@ def collect_endStateXandY_response(model_name_all, save_results_folder_all, stri
                         # print(gm_ids[j])
 
                         # collect results for this gm
-                        results_gm = posixpath.join(stripe_folder_path, gm_ids[j])
+                        results_gm = os.path.join(stripe_folder_path, gm_ids[j])
 
                         # check if acc results available (gm finished?)
                         pfa_gm = get_EDPstory_response(results_gm, n_stories, 'acc_env')
