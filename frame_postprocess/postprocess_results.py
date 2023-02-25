@@ -1329,10 +1329,10 @@ def plot_response_in_height(EDP, edp2plot, title_text, edp_limits, ax, add_stats
     # format input
     edp2plot = np.array(edp2plot).astype(float)
     n_records, n_stories = edp2plot.shape
-    story_list = np.linspace(0, n_stories-1, n_stories)
+    story_list = np.linspace(0, n_stories, n_stories+1)
 
-    # Add ground values (repeat those from first story)
-    #     edp2plot = np.concatenate((edp2plot[:,0].reshape(1,-1), edp2plot.T)).T
+    # Repeat roof value
+    edp2plot = np.concatenate((edp2plot.T, edp2plot[:,-1].reshape(1,-1))).T
 
     # Compute median and std deviation
     median = np.mean(np.log(edp2plot), 0)
@@ -1366,6 +1366,7 @@ def plot_response_in_height(EDP, edp2plot, title_text, edp_limits, ax, add_stats
     _ = ax.set_title(title_text, loc='right')
     # _ = plt.legend(loc='best', bbox_to_anchor=(1, 0, 0.45, 0.5))
     # _ = plt.tight_layout()
+
 
 def risk_convolution_poly(im_exceedance_frequency, im_list, fragilities, deg=4):
     # plot_response_in_height plots the story edp's for a building along the height
