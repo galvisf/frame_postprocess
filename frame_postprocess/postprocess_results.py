@@ -1366,10 +1366,12 @@ def plot_response_in_height(EDP, edp2plot, title_text, edp_limits, ax, add_stats
     _ = ax.set_title(title_text, loc='right')
     # _ = plt.legend(loc='best', bbox_to_anchor=(1, 0, 0.45, 0.5))
     # _ = plt.tight_layout()
+    
+    return np.exp(median)
 
 
 def risk_convolution_poly(im_exceedance_frequency, im_list, fragilities, deg=4):
-    # plot_response_in_height plots the story edp's for a building along the height
+    # risk_convolution_poly calculates the integral of vulenrability over hazard curve
     #
     # INPUTS
     #   im_exceedance_frequency = mean annual freq. of exceedence of each IM in im_list for the hazard curve
@@ -1425,7 +1427,7 @@ def risk_convolution_poly(im_exceedance_frequency, im_list, fragilities, deg=4):
 
 
 def EAL_poly(im_exceedance_frequency, im_list, im_loss, loss_given_im, rp_no_loss=25, deg=4):
-    # plot_response_in_height plots the story edp's for a building along the height
+    # EAL_poly calculates the expected annual loss given vulenrability curves and hazard curves
     #
     # INPUTS
     #   im_exceedance_frequency = mean annual freq. of exceedence of each IM in im_list for the hazard curve

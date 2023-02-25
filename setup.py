@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='frame_postprocess',
-      version='0.3',
+      version='0.4',
       url='https://github.com/galvisf/frame_postprocess',
       license='MIT License',
       author='Francisco Galvis',
