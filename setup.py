@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='frame_postprocess',
-      version='0.1',
+      version='0.2',
       url='https://github.com/galvisf/frame_postprocess',
       license='MIT License',
       author='Francisco Galvis',
@@ -17,7 +17,6 @@ setup(name='frame_postprocess',
              'h5py',
              'matplotlib',
              'scipy',
-             'os',
       ],
       classifiers = [
              'Programming Language :: Python',
