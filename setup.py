@@ -22,7 +22,7 @@ setup(name='frame_postprocess',
       classifiers = [
              'Programming Language :: Python',
              'Natural Language :: English',
-             'Intended Audience :: Engineering',
+             'Intended Audience :: Education',
              'Intended Audience :: Science/Research',
              'License :: OSI Approved :: MIT License',
              'Topic :: Scientific/Engineering',
