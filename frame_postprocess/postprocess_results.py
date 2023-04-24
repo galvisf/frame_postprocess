@@ -1340,9 +1340,9 @@ def plot_response_in_height(EDP, edp2plot, title_text, edp_limits, ax, add_stats
 
     # Get x-label
     if EDP == 'PID':
-        edp_label = '$PID_{max}$ []'
+        edp_label = '$PID_{max}$ [%]'
     elif EDP == 'RID':
-        edp_label = '$RID_{max}$ []'
+        edp_label = '$RID_{max}$ [%]'
     elif EDP == 'PFA':
         edp_label = '$PFA_{max}$ [g]'
     else:
@@ -1360,7 +1360,7 @@ def plot_response_in_height(EDP, edp2plot, title_text, edp_limits, ax, add_stats
         _ = ax.set_xlim(edp_limits)
 
     _ = ax.grid(which='both', alpha=0.3)
-    _ = ax.set_ylim([0.5, n_stories+0.5])
+    _ = ax.set_ylim([0, n_stories+0.5])
     _ = ax.set_xlabel(edp_label)
     _ = ax.set_ylabel('Story #')
     _ = ax.set_title(title_text, loc='right')
