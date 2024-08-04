@@ -1,6 +1,7 @@
 from .base import *
 
 
+
 def get_story_response(results_folder, beam_list, filenames):
     # INPUTS
     #    results_folder = path to folder with the results of NLRHA
@@ -33,10 +34,12 @@ def get_story_response(results_folder, beam_list, filenames):
             return
 
         if file == 'drift_max':
-            response = np.max(np.abs(response[:, 1]))  # remove time column
+            if response.ndim == 2:
+                response = np.max(np.abs(response[:, 1]))  # remove time column
 
         if file == 'drift':
-            response = response[:, 1]  # remove time column
+            if response.ndim == 2:
+                response = response[:, 1]  # remove time column
 
         if file == 'disp':
             story_response['time'] = response[:, 0]
@@ -61,7 +64,8 @@ def get_story_response(results_folder, beam_list, filenames):
                 return
 
             if file == 'disp' or file == 'drift':
-                res = res[:, 1]
+                if res.ndim == 2:
+                    res = res[:, 1]
 
                 # Make sure all time histories have same length as first story
                 n_pts = len(response.T)
@@ -82,6 +86,7 @@ def get_story_response(results_folder, beam_list, filenames):
         story_response[file] = response
 
     return story_response
+
 
 def get_EDPstory_response(results_folder, n_stories, file, minrdrift=5e-4):
     # INPUTS
